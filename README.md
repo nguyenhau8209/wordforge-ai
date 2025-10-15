@@ -1,36 +1,150 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WordForge AI - Ứng dụng học từ vựng thông minh
 
-## Getting Started
+WordForge AI là một ứng dụng web học từ vựng thông minh được xây dựng với Next.js, sử dụng AI để tự động tạo flashcard và hệ thống lặp lại ngắt quãng (SRS) để tối ưu hóa quá trình học.
 
-First, run the development server:
+## ✨ Tính năng chính
+
+- 🤖 **AI Flashcard Forge**: Tự động tạo flashcard với định nghĩa, phát âm, câu ví dụ và hình ảnh
+- 📚 **Hệ thống SRS**: Lên lịch ôn tập thông minh dựa trên thuật toán SuperMemo
+- 🎯 **Luyện tập tương tác**: Các bài quiz đa dạng để củng cố kiến thức
+- 📊 **Dashboard tiến độ**: Thống kê trực quan về quá trình học
+- 🔐 **Xác thực an toàn**: Đăng nhập với Google OAuth
+
+## 🛠️ Công nghệ sử dụng
+
+- **Frontend**: Next.js 14 (App Router), React, TypeScript
+- **Styling**: Tailwind CSS, Shadcn/ui
+- **Backend**: Next.js API Routes, Server Actions
+- **Database**: PostgreSQL với Prisma ORM
+- **Authentication**: NextAuth.js
+- **AI Integration**: OpenAI API, Google TTS, DALL-E
+
+## 🚀 Cài đặt và chạy dự án
+
+### Yêu cầu hệ thống
+
+- Node.js 18+ 
+- PostgreSQL database
+- Tài khoản OpenAI API
+- Tài khoản Google OAuth (tùy chọn)
+
+### Bước 1: Clone repository
+
+```bash
+git clone <repository-url>
+cd wordforge-ai
+```
+
+### Bước 2: Cài đặt dependencies
+
+```bash
+npm install
+```
+
+### Bước 3: Cấu hình biến môi trường
+
+Tạo file `.env.local` trong thư mục gốc:
+
+```env
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/wordforge_ai?schema=public"
+
+# NextAuth.js
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="your-secret-key-here"
+
+# OAuth Providers
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+
+# AI APIs
+OPENAI_API_KEY="your-openai-api-key"
+GOOGLE_TTS_API_KEY="your-google-tts-api-key"
+DALL_E_API_KEY="your-dalle-api-key"
+```
+
+### Bước 4: Thiết lập database
+
+```bash
+# Tạo migration
+npx prisma migrate dev
+
+# Generate Prisma client
+npx prisma generate
+```
+
+### Bước 5: Chạy ứng dụng
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Truy cập [http://localhost:3000](http://localhost:3000) để xem ứng dụng.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 Cấu trúc dự án
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+wordforge-ai/
+├── src/
+│   ├── app/                    # Next.js App Router
+│   │   ├── api/               # API Routes
+│   │   ├── auth/              # Authentication pages
+│   │   ├── dashboard/         # Dashboard page
+│   │   ├── practice/          # Practice pages
+│   │   └── page.tsx           # Home page
+│   ├── components/            # React components
+│   │   └── ui/               # Shadcn/ui components
+│   └── lib/                  # Utility functions
+│       ├── auth.ts           # NextAuth configuration
+│       └── prisma.ts         # Prisma client
+├── prisma/
+│   └── schema.prisma         # Database schema
+└── public/                   # Static assets
+```
 
-## Learn More
+## 🎯 Các tính năng đã triển khai
 
-To learn more about Next.js, take a look at the following resources:
+### ✅ MVP (Giai đoạn 1)
+- [x] Khởi tạo dự án Next.js với App Router
+- [x] Cấu hình Tailwind CSS và Shadcn/ui
+- [x] Thiết lập Prisma ORM và database schema
+- [x] Cài đặt NextAuth.js cho xác thực
+- [x] Tạo API routes cho AI integration
+- [x] Xây dựng giao diện cơ bản cho flashcard
+- [x] Implement hệ thống SRS cơ bản
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 🔄 Đang phát triển (Giai đoạn 2)
+- [ ] Trang Dashboard cá nhân hoàn chỉnh
+- [ ] Các trang luyện tập và kiểm tra nâng cao
+- [ ] Hoàn thiện UI/UX và responsive design
+- [ ] Tích hợp audio phát âm thực tế
+- [ ] Tích hợp hình ảnh từ DALL-E
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 📋 Kế hoạch (Giai đoạn 3)
+- [ ] Tối ưu hiệu suất và tốc độ tải
+- [ ] Tính năng tạo nhiều bộ từ vựng
+- [ ] Báo cáo tiến độ chi tiết
+- [ ] Chia sẻ bộ từ vựng với cộng đồng
+- [ ] Mobile app (React Native)
 
-## Deploy on Vercel
+## 🤝 Đóng góp
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Mọi đóng góp đều được chào đón! Vui lòng:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Fork dự án
+2. Tạo feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to branch (`git push origin feature/AmazingFeature`)
+5. Mở Pull Request
+
+## 📄 License
+
+Dự án này được phân phối dưới MIT License. Xem file `LICENSE` để biết thêm thông tin.
+
+## 📞 Liên hệ
+
+Nếu có câu hỏi hoặc góp ý, vui lòng tạo issue trên GitHub hoặc liên hệ qua email.
+
+---
+
+**WordForge AI** - Học từ vựng thông minh, hiệu quả hơn! 🚀
