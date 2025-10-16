@@ -10,15 +10,18 @@ interface VocabularyItem {
   word: string
   type: string
   vietnamese_meaning: string
+  english_definition?: string
 }
 
 interface VocabularyListProps {
   vocabulary: VocabularyItem[]
   topic: string
+  language: string
+  proficiency: string
   onNext: (passage: string) => void
 }
 
-export default function VocabularyList({ vocabulary, topic, onNext }: VocabularyListProps) {
+export default function VocabularyList({ vocabulary, topic, language, proficiency, onNext }: VocabularyListProps) {
   const [isGeneratingPassage, setIsGeneratingPassage] = useState(false)
 
   const handleNext = async () => {
@@ -33,6 +36,8 @@ export default function VocabularyList({ vocabulary, topic, onNext }: Vocabulary
           action: "generate_passage",
           topic: topic,
           vocabulary: vocabulary,
+          language: language,
+          proficiency: proficiency,
         }),
       })
 
@@ -91,7 +96,12 @@ export default function VocabularyList({ vocabulary, topic, onNext }: Vocabulary
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-0">
-              <p className="text-gray-700">{item.vietnamese_meaning}</p>
+              <p className="text-gray-700 mb-2">{item.vietnamese_meaning}</p>
+              {item.english_definition && (
+                <p className="text-sm text-gray-500 italic">
+                  {item.english_definition}
+                </p>
+              )}
             </CardContent>
           </Card>
         ))}

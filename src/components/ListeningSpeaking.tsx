@@ -13,10 +13,12 @@ interface ListeningSpeakingProps {
     type: string
     vietnamese_meaning: string
   }>
+  language: string
+  proficiency: string
   onComplete: () => void
 }
 
-export default function ListeningSpeaking({ passage, vocabulary, onComplete }: ListeningSpeakingProps) {
+export default function ListeningSpeaking({ passage, vocabulary, language, proficiency, onComplete }: ListeningSpeakingProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [hasRecorded, setHasRecorded] = useState(false)

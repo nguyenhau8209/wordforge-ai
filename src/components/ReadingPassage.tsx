@@ -16,10 +16,12 @@ interface ReadingPassageProps {
   passage: string
   vocabulary: VocabularyItem[]
   topic: string
+  language: string
+  proficiency: string
   onNext: (exercises: any) => void
 }
 
-export default function ReadingPassage({ passage, vocabulary, topic, onNext }: ReadingPassageProps) {
+export default function ReadingPassage({ passage, vocabulary, topic, language, proficiency, onNext }: ReadingPassageProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isGeneratingExercises, setIsGeneratingExercises] = useState(false)
   const [highlightedPassage, setHighlightedPassage] = useState("")
@@ -74,6 +76,8 @@ export default function ReadingPassage({ passage, vocabulary, topic, onNext }: R
           action: "generate_exercises",
           passage: passage,
           vocabulary: vocabulary,
+          language: language,
+          proficiency: proficiency,
         }),
       })
 

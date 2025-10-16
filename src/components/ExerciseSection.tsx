@@ -32,10 +32,12 @@ interface ExerciseSectionProps {
     type: string
     vietnamese_meaning: string
   }>
+  language: string
+  proficiency: string
   onNext: () => void
 }
 
-export default function ExerciseSection({ exercises, vocabulary, onNext }: ExerciseSectionProps) {
+export default function ExerciseSection({ exercises, vocabulary, language, proficiency, onNext }: ExerciseSectionProps) {
   const [currentExercise, setCurrentExercise] = useState(0)
   const [fillAnswers, setFillAnswers] = useState<{ [key: number]: string }>({})
   const [matchingAnswers, setMatchingAnswers] = useState<{ [key: number]: string }>({})

@@ -15,6 +15,8 @@ interface VocabularyItem {
 interface LessonData {
   topic: string
   wordCount: number
+  language: string
+  proficiency: string
   vocabulary: VocabularyItem[]
   step: number
 }
@@ -76,6 +78,8 @@ export default function LessonFlow({ lessonData, onComplete }: { lessonData: Les
           <VocabularyList
             vocabulary={lessonData.vocabulary}
             topic={lessonData.topic}
+            language={lessonData.language}
+            proficiency={lessonData.proficiency}
             onNext={handleVocabularyNext}
           />
         )}
@@ -85,6 +89,8 @@ export default function LessonFlow({ lessonData, onComplete }: { lessonData: Les
             passage={passage}
             vocabulary={lessonData.vocabulary}
             topic={lessonData.topic}
+            language={lessonData.language}
+            proficiency={lessonData.proficiency}
             onNext={handleReadingNext}
           />
         )}
@@ -93,6 +99,8 @@ export default function LessonFlow({ lessonData, onComplete }: { lessonData: Les
           <ExerciseSection
             exercises={exercises}
             vocabulary={lessonData.vocabulary}
+            language={lessonData.language}
+            proficiency={lessonData.proficiency}
             onNext={handleExerciseNext}
           />
         )}
@@ -101,6 +109,8 @@ export default function LessonFlow({ lessonData, onComplete }: { lessonData: Les
           <ListeningSpeaking
             passage={passage}
             vocabulary={lessonData.vocabulary}
+            language={lessonData.language}
+            proficiency={lessonData.proficiency}
             onComplete={handleLessonComplete}
           />
         )}

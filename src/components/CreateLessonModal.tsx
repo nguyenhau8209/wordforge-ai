@@ -16,6 +16,9 @@ export default function CreateLessonModal({ onLessonCreated }: CreateLessonModal
   const [isOpen, setIsOpen] = useState(false)
   const [topic, setTopic] = useState("")
   const [wordCount, setWordCount] = useState(20)
+  const [language, setLanguage] = useState("english")
+  const [customLanguage, setCustomLanguage] = useState("")
+  const [proficiency, setProficiency] = useState("A2")
   const [isLoading, setIsLoading] = useState(false)
 
   const handleCreateLesson = async () => {
@@ -24,8 +27,14 @@ export default function CreateLessonModal({ onLessonCreated }: CreateLessonModal
       return
     }
 
+    if (language === "custom" && !customLanguage.trim()) {
+      toast.error("Vui lòng nhập tên ngôn ngữ tùy chỉnh")
+      return
+    }
+
     setIsLoading(true)
     try {
+      const selectedLanguage = language === "custom" ? customLanguage.trim() : language
       const response = await fetch("/api/gemini", {
         method: "POST",
         headers: {
@@ -35,6 +44,8 @@ export default function CreateLessonModal({ onLessonCreated }: CreateLessonModal
           action: "generate_vocabulary",
           topic: topic.trim(),
           wordCount: wordCount,
+          language: selectedLanguage,
+          proficiency: proficiency,
         }),
       })
 
@@ -43,6 +54,8 @@ export default function CreateLessonModal({ onLessonCreated }: CreateLessonModal
         const lessonData = {
           topic: topic.trim(),
           wordCount,
+          language: selectedLanguage,
+          proficiency: proficiency,
           vocabulary: data.vocabulary,
           step: 1, // Bước 1: Hiển thị từ vựng
         }
@@ -51,6 +64,9 @@ export default function CreateLessonModal({ onLessonCreated }: CreateLessonModal
         setIsOpen(false)
         setTopic("")
         setWordCount(20)
+        setLanguage("english")
+        setCustomLanguage("")
+        setProficiency("A2")
         toast.success("Tạo bài học thành công!")
       } else {
         const error = await response.json()
@@ -106,6 +122,46 @@ export default function CreateLessonModal({ onLessonCreated }: CreateLessonModal
               <option value={20}>20 từ</option>
               <option value={25}>25 từ</option>
               <option value={30}>30 từ</option>
+            </select>
+          </div>
+          
+          <div>
+            <Label htmlFor="language">Ngôn ngữ học</Label>
+            <select
+              id="language"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md mt-1"
+            >
+              <option value="english">Tiếng Anh</option>
+              <option value="german">Tiếng Đức</option>
+              <option value="chinese">Tiếng Trung</option>
+              <option value="custom">Tùy chỉnh</option>
+            </select>
+            {language === "custom" && (
+              <Input
+                value={customLanguage}
+                onChange={(e) => setCustomLanguage(e.target.value)}
+                placeholder="Nhập tên ngôn ngữ (ví dụ: Tiếng Pháp, Tiếng Nhật...)"
+                className="mt-2"
+              />
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="proficiency">Trình độ</Label>
+            <select
+              id="proficiency"
+              value={proficiency}
+              onChange={(e) => setProficiency(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md mt-1"
+            >
+              <option value="A1">A1 - Cơ bản</option>
+              <option value="A2">A2 - Sơ cấp</option>
+              <option value="B1">B1 - Trung cấp</option>
+              <option value="B2">B2 - Trung cấp cao</option>
+              <option value="C1">C1 - Cao cấp</option>
+              <option value="C2">C2 - Thành thạo</option>
             </select>
           </div>
           <div className="flex justify-end space-x-2">
