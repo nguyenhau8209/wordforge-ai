@@ -18,12 +18,11 @@ interface ReadingPassageProps {
   topic: string
   language: string
   proficiency: string
-  onNext: (exercises: any) => void
+  onNext: () => void
 }
 
 export default function ReadingPassage({ passage, vocabulary, topic, language, proficiency, onNext }: ReadingPassageProps) {
   const [isPlaying, setIsPlaying] = useState(false)
-  const [isGeneratingExercises, setIsGeneratingExercises] = useState(false)
   const [highlightedPassage, setHighlightedPassage] = useState("")
 
   useEffect(() => {
@@ -64,36 +63,8 @@ export default function ReadingPassage({ passage, vocabulary, topic, language, p
     }
   }
 
-  const handleNext = async () => {
-    setIsGeneratingExercises(true)
-    try {
-      const response = await fetch("/api/gemini", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "generate_exercises",
-          passage: passage,
-          vocabulary: vocabulary,
-          language: language,
-          proficiency: proficiency,
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        onNext(data.exercises)
-      } else {
-        const error = await response.json()
-        toast.error(error.error || "Có lỗi xảy ra khi tạo bài luyện tập")
-      }
-    } catch (error) {
-      console.error("Error generating exercises:", error)
-      toast.error("Có lỗi xảy ra khi tạo bài luyện tập")
-    } finally {
-      setIsGeneratingExercises(false)
-    }
+  const handleNext = () => {
+    onNext()
   }
 
   return (
@@ -185,20 +156,10 @@ export default function ReadingPassage({ passage, vocabulary, topic, language, p
       <div className="text-center">
         <Button
           onClick={handleNext}
-          disabled={isGeneratingExercises}
           className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-8 py-3 text-lg"
         >
-          {isGeneratingExercises ? (
-            <>
-              <BookOpen className="h-5 w-5 mr-2 animate-pulse" />
-              Đang tạo bài luyện tập...
-            </>
-          ) : (
-            <>
-              Tiếp tục sang Bài Luyện Tập
-              <ArrowRight className="h-5 w-5 ml-2" />
-            </>
-          )}
+          Tiếp tục sang Luyện Viết
+          <ArrowRight className="h-5 w-5 ml-2" />
         </Button>
       </div>
     </div>

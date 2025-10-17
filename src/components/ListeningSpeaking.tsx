@@ -25,6 +25,11 @@ export default function ListeningSpeaking({ passage, vocabulary, language, profi
   const [recordingTime, setRecordingTime] = useState(0)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [practiceMode, setPracticeMode] = useState<'sentence' | 'passage'>('sentence')
+  const [currentSentence, setCurrentSentence] = useState(0)
+  const [playbackSpeed, setPlaybackSpeed] = useState(0.7)
+  const [sentences, setSentences] = useState<string[]>([])
+  const [completedSentences, setCompletedSentences] = useState<Set<number>>(new Set())
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -38,17 +43,35 @@ export default function ListeningSpeaking({ passage, vocabulary, language, profi
     }
   }, [])
 
+  // Split passage into sentences
+  useEffect(() => {
+    const sentenceArray = passage
+      .split(/[.!?]+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
+    setSentences(sentenceArray)
+  }, [passage])
+
   const handlePlayPause = () => {
     if ('speechSynthesis' in window) {
       if (isPlaying) {
         speechSynthesis.cancel()
         setIsPlaying(false)
       } else {
-        const utterance = new SpeechSynthesisUtterance(passage)
-        utterance.lang = 'en-US'
-        utterance.rate = 0.7
+        const textToSpeak = practiceMode === 'sentence' 
+          ? sentences[currentSentence] || passage
+          : passage
+        
+        const utterance = new SpeechSynthesisUtterance(textToSpeak)
+        utterance.lang = language === 'english' ? 'en-US' : 'en-US' // Can be extended for other languages
+        utterance.rate = playbackSpeed
         utterance.pitch = 1
-        utterance.onend = () => setIsPlaying(false)
+        utterance.onend = () => {
+          setIsPlaying(false)
+          if (practiceMode === 'sentence') {
+            setCompletedSentences(prev => new Set([...prev, currentSentence]))
+          }
+        }
         utterance.onerror = () => setIsPlaying(false)
         
         speechSynthesis.speak(utterance)
@@ -132,6 +155,24 @@ export default function ListeningSpeaking({ passage, vocabulary, language, profi
     toast.success("Chúc mừng! Bạn đã hoàn thành bài học hôm nay!")
   }
 
+  const nextSentence = () => {
+    if (currentSentence < sentences.length - 1) {
+      setCurrentSentence(currentSentence + 1)
+    }
+  }
+
+  const prevSentence = () => {
+    if (currentSentence > 0) {
+      setCurrentSentence(currentSentence - 1)
+    }
+  }
+
+  const handleModeChange = (mode: 'sentence' | 'passage') => {
+    setPracticeMode(mode)
+    setCurrentSentence(0)
+    setCompletedSentences(new Set())
+  }
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
@@ -147,6 +188,32 @@ export default function ListeningSpeaking({ passage, vocabulary, language, profi
         <p className="text-gray-600">
           Luyện nghe đoạn văn và thực hành nói để cải thiện phát âm
         </p>
+        
+        {/* Practice Mode Selection */}
+        <div className="flex justify-center mt-4">
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => handleModeChange('sentence')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                practiceMode === 'sentence'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Từng câu
+            </button>
+            <button
+              onClick={() => handleModeChange('passage')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                practiceMode === 'passage'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Toàn bộ đoạn văn
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Listening Section */}
@@ -162,10 +229,67 @@ export default function ListeningSpeaking({ passage, vocabulary, language, profi
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-gray-700 leading-relaxed">{passage}</p>
+            {/* Speed Control */}
+            <div className="flex items-center justify-center space-x-4">
+              <label className="text-sm font-medium text-gray-700">Tốc độ phát:</label>
+              <div className="flex space-x-2">
+                {[0.5, 0.7, 1.0, 1.2].map((speed) => (
+                  <button
+                    key={speed}
+                    onClick={() => setPlaybackSpeed(speed)}
+                    className={`px-3 py-1 rounded text-sm ${
+                      playbackSpeed === speed
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    {speed}x
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Text Display */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              {practiceMode === 'sentence' ? (
+                <div className="space-y-4">
+                  <p className="text-gray-700 leading-relaxed text-center">
+                    {sentences[currentSentence]}
+                  </p>
+                  <div className="flex justify-center items-center space-x-4 text-sm text-gray-500">
+                    <span>Câu {currentSentence + 1} / {sentences.length}</span>
+                    {completedSentences.has(currentSentence) && (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-700 leading-relaxed">{passage}</p>
+              )}
+            </div>
+
+            {/* Controls */}
             <div className="flex justify-center space-x-4">
+              {practiceMode === 'sentence' && (
+                <>
+                  <Button
+                    onClick={prevSentence}
+                    disabled={currentSentence === 0}
+                    variant="outline"
+                    size="sm"
+                  >
+                    ← Trước
+                  </Button>
+                  <Button
+                    onClick={nextSentence}
+                    disabled={currentSentence === sentences.length - 1}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Sau →
+                  </Button>
+                </>
+              )}
               <Button
                 onClick={handlePlayPause}
                 disabled={!('speechSynthesis' in window)}
@@ -187,6 +311,16 @@ export default function ListeningSpeaking({ passage, vocabulary, language, profi
                 Dừng
               </Button>
             </div>
+
+            {/* Progress for sentence mode */}
+            {practiceMode === 'sentence' && sentences.length > 0 && (
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${((currentSentence + 1) / sentences.length) * 100}%` }}
+                />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -199,7 +333,10 @@ export default function ListeningSpeaking({ passage, vocabulary, language, profi
             Luyện Nói
           </CardTitle>
           <CardDescription>
-            Ghi âm giọng nói của bạn khi đọc đoạn văn (Shadowing)
+            {practiceMode === 'sentence' 
+              ? `Ghi âm giọng nói của bạn khi đọc câu ${currentSentence + 1} (Shadowing)`
+              : 'Ghi âm giọng nói của bạn khi đọc toàn bộ đoạn văn (Shadowing)'
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -322,10 +459,13 @@ export default function ListeningSpeaking({ passage, vocabulary, language, profi
         ) : (
           <Button
             onClick={completeLesson}
-            disabled={!hasRecorded}
+            disabled={practiceMode === 'sentence' ? completedSentences.size === 0 : !hasRecorded}
             className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-3 text-lg"
           >
-            Hoàn thành bài học
+            {practiceMode === 'sentence' 
+              ? `Hoàn thành bài học (${completedSentences.size}/${sentences.length} câu)`
+              : 'Hoàn thành bài học'
+            }
             <CheckCircle className="h-5 w-5 ml-2" />
           </Button>
         )}

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import VocabularyList from "./VocabularyList"
 import ReadingPassage from "./ReadingPassage"
+import WritingPractice from "./WritingPractice"
 import ExerciseSection from "./ExerciseSection"
 import ListeningSpeaking from "./ListeningSpeaking"
 
@@ -24,6 +25,7 @@ interface LessonData {
 export default function LessonFlow({ lessonData, onComplete }: { lessonData: LessonData, onComplete: () => void }) {
   const [currentStep, setCurrentStep] = useState(lessonData.step)
   const [passage, setPassage] = useState("")
+  const [correctedWriting, setCorrectedWriting] = useState("")
   const [exercises, setExercises] = useState<any>(null)
 
   const handleVocabularyNext = (generatedPassage: string) => {
@@ -31,13 +33,17 @@ export default function LessonFlow({ lessonData, onComplete }: { lessonData: Les
     setCurrentStep(2)
   }
 
-  const handleReadingNext = (generatedExercises: any) => {
-    setExercises(generatedExercises)
+  const handleReadingNext = () => {
     setCurrentStep(3)
   }
 
-  const handleExerciseNext = () => {
+  const handleWritingNext = (correctedWriting: string) => {
+    setCorrectedWriting(correctedWriting)
     setCurrentStep(4)
+  }
+
+  const handleExerciseNext = () => {
+    setCurrentStep(5)
   }
 
   const handleLessonComplete = () => {
@@ -54,20 +60,21 @@ export default function LessonFlow({ lessonData, onComplete }: { lessonData: Les
               Bài Học: {lessonData.topic}
             </h1>
             <span className="text-sm text-gray-500">
-              Bước {currentStep}/4
+              Bước {currentStep}/5
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div 
               className="bg-gradient-to-r from-blue-600 to-purple-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(currentStep / 4) * 100}%` }}
+              style={{ width: `${(currentStep / 5) * 100}%` }}
             />
           </div>
           <div className="flex justify-between mt-2 text-xs text-gray-500">
             <span>1. Từ vựng</span>
             <span>2. Đọc hiểu</span>
-            <span>3. Luyện tập</span>
-            <span>4. Nghe & Nói</span>
+            <span>3. Viết</span>
+            <span>4. Luyện tập</span>
+            <span>5. Nghe & Nói</span>
           </div>
         </div>
       </div>
@@ -95,19 +102,31 @@ export default function LessonFlow({ lessonData, onComplete }: { lessonData: Les
           />
         )}
 
-        {currentStep === 3 && exercises && (
+        {currentStep === 3 && (
+          <WritingPractice
+            topic={lessonData.topic}
+            vocabulary={lessonData.vocabulary}
+            language={lessonData.language}
+            proficiency={lessonData.proficiency}
+            onNext={handleWritingNext}
+          />
+        )}
+
+        {currentStep === 4 && (
           <ExerciseSection
             exercises={exercises}
             vocabulary={lessonData.vocabulary}
             language={lessonData.language}
             proficiency={lessonData.proficiency}
+            passage={passage}
+            topic={lessonData.topic}
             onNext={handleExerciseNext}
           />
         )}
 
-        {currentStep === 4 && (
+        {currentStep === 5 && (
           <ListeningSpeaking
-            passage={passage}
+            passage={correctedWriting || passage}
             vocabulary={lessonData.vocabulary}
             language={lessonData.language}
             proficiency={lessonData.proficiency}
