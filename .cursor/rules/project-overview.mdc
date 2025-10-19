@@ -1,0 +1,39 @@
+---
+alwaysApply: true
+description: Project overview and core architecture
+---
+
+# WordForge AI - Project Overview
+
+## Project Description
+WordForge AI is a Vietnamese vocabulary learning application that uses AI to generate personalized learning content. The app features spaced repetition algorithms, interactive flashcards, and multiple exercise types to help users learn vocabulary effectively.
+
+## Tech Stack
+- **Framework**: Next.js 15.5.4 with App Router
+- **Language**: TypeScript
+- **Database**: PostgreSQL with Prisma ORM
+- **Authentication**: NextAuth.js with Google OAuth
+- **AI Integration**: Google Generative AI (Gemini)
+- **Styling**: Tailwind CSS with Radix UI components
+- **State Management**: React hooks and context
+
+## Key Features
+- AI-generated vocabulary lessons and exercises
+- Spaced repetition system (SuperMemo algorithm)
+- Multiple exercise types: fill-in-the-blanks, matching, multiple choice
+- Audio pronunciation support
+- Progress tracking and review scheduling
+- User authentication and personal decks
+
+## Project Structure
+- [src/app/](mdc:src/app/) - Next.js App Router pages and API routes
+- [src/components/](mdc:src/components/) - React components and UI elements
+- [src/lib/](mdc:src/lib/) - Utility functions, auth config, and database client
+- [prisma/](mdc:prisma/) - Database schema and migrations
+- [docs/ai/](mdc:docs/ai/) - AI DevKit phase documentation
+
+## Core Models
+- **User**: Authentication and user management
+- **Deck**: Collection of flashcards for a specific topic
+- **Flashcard**: Individual vocabulary items with metadata
+- **Review**: Spaced repetition tracking data

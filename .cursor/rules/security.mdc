@@ -1,0 +1,77 @@
+---
+globs: *.ts,*.tsx
+description: Security best practices and patterns
+---
+
+# Security Best Practices
+
+## Authentication Security
+- Use secure session management with NextAuth.js
+- Implement proper JWT token handling
+- Use HTTPS in production
+- Implement proper logout functionality
+
+## Input Validation
+```typescript
+// Good: Input validation and sanitization
+function validateFlashcardInput(input: any): FlashcardInput {
+  if (!input.front || typeof input.front !== 'string') {
+    throw new ValidationError('Front text is required')
+  }
+  
+  if (input.front.length > 500) {
+    throw new ValidationError('Front text too long')
+  }
+  
+  // Sanitize HTML content
+  const sanitizedFront = sanitizeHtml(input.front)
+  
+  return {
+    front: sanitizedFront,
+    back: sanitizeHtml(input.back || ''),
+    // ... other fields
+  }
+}
+```
+
+## Database Security
+- Use parameterized queries with Prisma
+- Implement proper access controls
+- Validate user ownership of resources
+- Use database-level constraints
+
+## API Security
+- Validate all incoming requests
+- Implement rate limiting
+- Use proper CORS configuration
+- Sanitize all user inputs
+- Implement proper error handling without information leakage
+
+## Environment Variables
+- Store sensitive data in environment variables
+- Use different configurations for different environments
+- Never commit secrets to version control
+- Use proper secret management in production
+
+## Content Security
+- Sanitize user-generated content
+- Implement XSS protection
+- Use Content Security Policy headers
+- Validate file uploads if applicable
+
+## Data Protection
+- Encrypt sensitive data at rest
+- Use secure communication protocols
+- Implement proper data retention policies
+- Follow GDPR/privacy regulations
+
+## Security Headers
+```typescript
+// Good: Security headers configuration
+const securityHeaders = {
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
+}
+```

@@ -1,0 +1,54 @@
+---
+globs: *.ts,*.tsx
+description: Performance optimization guidelines
+---
+
+# Performance Optimization
+
+## Next.js Optimization
+- Use dynamic imports for code splitting
+- Implement proper loading states
+- Use Next.js Image component for images
+- Optimize bundle size with proper imports
+
+## React Performance
+- Use React.memo for expensive components
+- Implement useMemo and useCallback appropriately
+- Avoid unnecessary re-renders
+- Use proper dependency arrays in hooks
+
+## Database Performance
+- Use proper Prisma select/include statements
+- Implement pagination for large datasets
+- Use database indexes effectively
+- Optimize query patterns
+
+## AI Integration Performance
+- Cache AI responses when possible
+- Implement proper loading states
+- Use streaming for long responses
+- Handle rate limiting gracefully
+
+## Bundle Optimization
+```typescript
+// Good: Dynamic imports for large components
+const HeavyComponent = dynamic(() => import('./HeavyComponent'), {
+  loading: () => <div>Loading...</div>
+})
+
+// Good: Tree shaking friendly imports
+import { Button } from '@/components/ui/button'
+// Instead of: import * as UI from '@/components/ui'
+```
+
+## Memory Management
+- Clean up event listeners
+- Avoid memory leaks in useEffect
+- Use proper cleanup functions
+- Monitor memory usage in production
+
+## Caching Strategies
+- Implement proper cache headers
+- Use Next.js built-in caching
+- Cache expensive computations
+- Implement proper cache invalidation

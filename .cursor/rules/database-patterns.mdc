@@ -1,0 +1,45 @@
+---
+globs: *.ts,*.tsx
+description: Database and Prisma patterns
+---
+
+# Database & Prisma Patterns
+
+## Prisma Client Usage
+- Always use the centralized [prisma client](mdc:src/lib/prisma.ts)
+- Use transactions for multi-step operations
+- Implement proper error handling for database operations
+- Use select/include to optimize queries
+
+## Database Operations
+```typescript
+// Good: Specific field selection
+const user = await prisma.user.findUnique({
+  where: { id: userId },
+  select: { id: true, name: true, email: true }
+})
+
+// Good: Transaction for related operations
+await prisma.$transaction([
+  prisma.flashcard.create({ data: flashcardData }),
+  prisma.review.create({ data: reviewData })
+])
+```
+
+## Model Relationships
+- **User** → **Deck** (one-to-many)
+- **Deck** → **Flashcard** (one-to-many)
+- **Flashcard** → **Review** (one-to-many)
+- **User** → **Review** (through flashcard)
+
+## Data Validation
+- Use Prisma schema constraints
+- Validate input data before database operations
+- Implement proper error handling for constraint violations
+- Use Zod or similar for runtime validation when needed
+
+## Spaced Repetition Algorithm
+- Follow SuperMemo algorithm for review scheduling
+- Store ease factor, interval, and repetitions in Review model
+- Calculate next review date based on quality rating (0-5)
+- Implement proper review logic in [ExerciseSection](mdc:src/components/ExerciseSection.tsx)

@@ -1,0 +1,52 @@
+---
+globs: *.tsx,*.ts
+description: Accessibility guidelines and patterns
+---
+
+# Accessibility Guidelines
+
+## WCAG Compliance
+- Follow WCAG 2.1 AA standards
+- Ensure proper color contrast ratios
+- Implement keyboard navigation
+- Use semantic HTML elements
+
+## Screen Reader Support
+```typescript
+// Good: Proper ARIA labels and roles
+<button
+  aria-label="Flip flashcard to see definition"
+  aria-expanded={isFlipped}
+  onClick={handleFlip}
+>
+  <span className="sr-only">
+    {isFlipped ? 'Show word' : 'Show definition'}
+  </span>
+  {isFlipped ? <EyeIcon /> : <EyeOffIcon />}
+</button>
+```
+
+## Keyboard Navigation
+- Ensure all interactive elements are keyboard accessible
+- Implement proper tab order
+- Use focus management for modals and dropdowns
+- Provide visible focus indicators
+
+## Form Accessibility
+- Use proper form labels and associations
+- Implement field validation with clear error messages
+- Use fieldset and legend for grouped inputs
+- Provide helpful instructions and examples
+
+## Vietnamese Language Considerations
+- Ensure proper text direction support
+- Use appropriate fonts for Vietnamese characters
+- Test with Vietnamese screen readers
+- Consider cultural accessibility needs
+
+## Testing Accessibility
+- Use automated accessibility testing tools
+- Test with keyboard-only navigation
+- Test with screen readers
+- Validate color contrast ratios
+- Test with different zoom levels

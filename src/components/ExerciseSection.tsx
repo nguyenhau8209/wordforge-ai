@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { ArrowRight, CheckCircle, XCircle, RotateCcw, Volume2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -12,16 +11,19 @@ interface ExerciseData {
   fill_in_the_blanks: Array<{
     question: string
     answer: string
+    translation?: string
     options?: string[]
   }>
   matching: Array<{
     word: string
     meaning: string
+    translation?: string
   }>
   multiple_choice: Array<{
     question: string
     options: string[]
     answer: string
+    translation?: string
   }>
 }
 
@@ -46,20 +48,12 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
   const [mcAnswers, setMcAnswers] = useState<{ [key: number]: string }>({})
   const [showResults, setShowResults] = useState(false)
   const [scores, setScores] = useState({ fill: 0, matching: 0, mc: 0 })
-  const [generatedExercises, setGeneratedExercises] = useState<ExerciseData | null>(exercises)
+  const [generatedExercises, setGeneratedExercises] = useState<ExerciseData | null>(exercises || null)
   const [isGeneratingExercises, setIsGeneratingExercises] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [completedTabs, setCompletedTabs] = useState<Set<number>>(new Set())
 
-  // Generate exercises when component mounts if not provided
-  useEffect(() => {
-    if (!generatedExercises) {
-      console.log("Generating exercises with passage:", passage)
-      generateExercises()
-    }
-  }, [])
-
-  const generateExercises = async () => {
+  const generateExercises = useCallback(async () => {
     console.log("Starting exercise generation with:", { passage, vocabulary, language, proficiency })
     
     let passageToUse = passage
@@ -117,7 +111,14 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
       if (response.ok) {
         const data = await response.json()
         console.log("Generated exercises:", data.exercises)
+        console.log("Exercise data structure:", {
+          fill_in_the_blanks: data.exercises?.fill_in_the_blanks?.length || 0,
+          matching: data.exercises?.matching?.length || 0,
+          multiple_choice: data.exercises?.multiple_choice?.length || 0
+        })
+        console.log("Setting generatedExercises to:", data.exercises)
         setGeneratedExercises(data.exercises)
+        console.log("setGeneratedExercises called")
       } else {
         const error = await response.json()
         console.error("API error:", error)
@@ -129,13 +130,36 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
     } finally {
       setIsGeneratingExercises(false)
     }
-  }
+  }, [passage, vocabulary, language, proficiency, topic])
+
+  // Generate exercises when component mounts if not provided
+  useEffect(() => {
+    console.log("ExerciseSection mounted with:", {
+      exercises: !!exercises,
+      generatedExercises: !!generatedExercises,
+      passage: !!passage,
+      vocabulary: vocabulary.length
+    })
+    
+    if (!generatedExercises) {
+      console.log("Generating exercises with passage:", passage)
+      generateExercises()
+    }
+  }, [exercises, generatedExercises, passage, vocabulary.length, generateExercises])
 
   const exerciseTypes = generatedExercises ? [
     { name: "Điền từ vào chỗ trống", count: generatedExercises.fill_in_the_blanks.length },
     { name: "Nối từ với nghĩa", count: generatedExercises.matching.length },
     { name: "Trắc nghiệm", count: generatedExercises.multiple_choice.length }
   ] : []
+
+  // Debug logging
+  console.log("ExerciseSection render state:", {
+    generatedExercises: !!generatedExercises,
+    isGeneratingExercises,
+    exerciseTypes: exerciseTypes.length,
+    currentExercise
+  })
 
   const handleFillAnswer = (index: number, answer: string) => {
     setFillAnswers(prev => ({ ...prev, [index]: answer }))
@@ -234,151 +258,6 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
     }
   }
 
-  const renderFillInTheBlanks = () => {
-    if (!generatedExercises) return null
-    return (
-      <div className="space-y-6">
-        <h3 className="text-xl font-semibold text-gray-900">Điền từ vào chỗ trống</h3>
-        {generatedExercises.fill_in_the_blanks.map((exercise, index) => (
-        <Card key={index}>
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              <p className="text-gray-700">
-                {exercise.question.split('___').map((part, partIndex) => (
-                  <span key={partIndex}>
-                    {part}
-                    {partIndex < exercise.question.split('___').length - 1 && (
-                      <Input
-                        value={fillAnswers[index] || ''}
-                        onChange={(e) => handleFillAnswer(index, e.target.value)}
-                        className="inline-block w-32 mx-2"
-                        placeholder="Điền từ"
-                        disabled={showResults}
-                      />
-                    )}
-                  </span>
-                ))}
-              </p>
-              {showResults && (
-                <div className="flex items-center space-x-2">
-                  {fillAnswers[index]?.toLowerCase().trim() === exercise.answer.toLowerCase().trim() ? (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-red-500" />
-                  )}
-                  <span className="text-sm text-gray-600">
-                    Đáp án đúng: <strong>{exercise.answer}</strong>
-                  </span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  )
-
-  const renderMatching = () => {
-    if (!generatedExercises) return null
-    return (
-      <div className="space-y-6">
-        <h3 className="text-xl font-semibold text-gray-900">Nối từ với nghĩa</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {generatedExercises.matching.map((exercise, index) => (
-            <Card key={index}>
-              <CardContent className="pt-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{exercise.word}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => speakWord(exercise.word)}
-                      className="p-1"
-                    >
-                      <Volume2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <select
-                    value={matchingAnswers[index] || ''}
-                    onChange={(e) => handleMatchingAnswer(index, e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    disabled={showResults}
-                  >
-                    <option value="">Chọn nghĩa</option>
-                    {generatedExercises.matching.map((item, itemIndex) => (
-                      <option key={itemIndex} value={item.meaning}>
-                        {item.meaning}
-                      </option>
-                    ))}
-                  </select>
-                  {showResults && (
-                    <div className="flex items-center space-x-2">
-                      {matchingAnswers[index] === exercise.meaning ? (
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-500" />
-                      )}
-                      <span className="text-sm text-gray-600">
-                        Đáp án đúng: <strong>{exercise.meaning}</strong>
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  const renderMultipleChoice = () => {
-    if (!generatedExercises) return null
-    return (
-      <div className="space-y-6">
-        <h3 className="text-xl font-semibold text-gray-900">Trắc nghiệm</h3>
-        {generatedExercises.multiple_choice.map((exercise, index) => (
-        <Card key={index}>
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              <p className="text-gray-700 font-medium">{exercise.question}</p>
-              <div className="space-y-2">
-                {exercise.options.map((option, optionIndex) => (
-                  <label key={optionIndex} className="flex items-center space-x-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name={`mc-${index}`}
-                      value={option}
-                      checked={mcAnswers[index] === option}
-                      onChange={(e) => handleMcAnswer(index, e.target.value)}
-                      disabled={showResults}
-                      className="text-blue-600"
-                    />
-                    <span className="text-gray-700">{option}</span>
-                  </label>
-                ))}
-              </div>
-              {showResults && (
-                <div className="flex items-center space-x-2">
-                  {mcAnswers[index] === exercise.answer ? (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-red-500" />
-                  )}
-                  <span className="text-sm text-gray-600">
-                    Đáp án đúng: <strong>{exercise.answer}</strong>
-                  </span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  )
-  }
-
   if (isGeneratingExercises) {
     return (
       <div className="max-w-4xl mx-auto p-6">
@@ -399,6 +278,11 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
   }
 
   if (!generatedExercises && !isGeneratingExercises) {
+    console.log("Rendering error state - no exercises and not generating", {
+      generatedExercises,
+      isGeneratingExercises,
+      exercises
+    })
     return (
       <div className="max-w-4xl mx-auto p-6">
         <div className="text-center">
@@ -412,7 +296,7 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
           {(!passage || passage.trim() === "") && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto mb-4">
               <p className="text-sm text-yellow-800">
-                <strong>Gợi ý:</strong> Hãy hoàn thành bước "Đọc hiểu" trước để có đoạn văn cho bài luyện tập.
+                <strong>Gợi ý:</strong> Hãy hoàn thành bước &quot;Đọc hiểu&quot; trước để có đoạn văn cho bài luyện tập.
               </p>
             </div>
           )}
@@ -434,6 +318,16 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
       </div>
     )
   }
+
+  console.log("Rendering main exercise interface with:", {
+    generatedExercises: !!generatedExercises,
+    exerciseTypes: exerciseTypes.length,
+    currentExercise,
+    generatedExercisesData: generatedExercises,
+    fillInTheBlanks: generatedExercises?.fill_in_the_blanks?.length || 0,
+    matching: generatedExercises?.matching?.length || 0,
+    multipleChoice: generatedExercises?.multiple_choice?.length || 0
+  })
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -464,9 +358,157 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
 
       {/* Exercise Content */}
       <div className="mb-8">
-        {currentExercise === 0 && renderFillInTheBlanks()}
-        {currentExercise === 1 && renderMatching()}
-        {currentExercise === 2 && renderMultipleChoice()}
+        {currentExercise === 0 && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-gray-900">Điền từ vào chỗ trống</h3>
+            {generatedExercises?.fill_in_the_blanks?.map((exercise, index) => (
+              <Card key={index}>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <p className="text-gray-700">
+                      {exercise.question.split('___').map((part, partIndex) => (
+                        <span key={partIndex}>
+                          {part}
+                          {partIndex < exercise.question.split('___').length - 1 && (
+                            <Input
+                              value={fillAnswers[index] || ''}
+                              onChange={(e) => handleFillAnswer(index, e.target.value)}
+                              className="inline-block w-32 mx-2"
+                              placeholder="Điền từ"
+                              disabled={showResults}
+                            />
+                          )}
+                        </span>
+                      ))}
+                    </p>
+                    {exercise.translation && (
+                      <p className="text-sm text-gray-500 italic mt-2">
+                        {exercise.translation}
+                      </p>
+                    )}
+                    {showResults && (
+                      <div className="flex items-center space-x-2">
+                        {fillAnswers[index]?.toLowerCase().trim() === exercise.answer.toLowerCase().trim() ? (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-red-500" />
+                        )}
+                        <span className="text-sm text-gray-600">
+                          Đáp án đúng: <strong>{exercise.answer}</strong>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {currentExercise === 1 && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-gray-900">Nối từ với nghĩa</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {generatedExercises?.matching?.map((exercise, index) => (
+                <Card key={index}>
+                  <CardContent className="pt-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{exercise.word}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => speakWord(exercise.word)}
+                          className="p-1"
+                        >
+                          <Volume2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {exercise.translation && (
+                        <p className="text-xs text-gray-500 italic">
+                          {exercise.translation}
+                        </p>
+                      )}
+                      <select
+                        value={matchingAnswers[index] || ''}
+                        onChange={(e) => handleMatchingAnswer(index, e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                        disabled={showResults}
+                      >
+                        <option value="">Chọn nghĩa</option>
+                        {generatedExercises?.matching?.map((item, itemIndex) => (
+                          <option key={itemIndex} value={item.meaning}>
+                            {item.meaning}
+                          </option>
+                        ))}
+                      </select>
+                      {showResults && (
+                        <div className="flex items-center space-x-2">
+                          {matchingAnswers[index] === exercise.meaning ? (
+                            <CheckCircle className="h-5 w-5 text-green-500" />
+                          ) : (
+                            <XCircle className="h-5 w-5 text-red-500" />
+                          )}
+                          <span className="text-sm text-gray-600">
+                            Đáp án đúng: <strong>{exercise.meaning}</strong>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {currentExercise === 2 && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-gray-900">Trắc nghiệm</h3>
+            {generatedExercises?.multiple_choice?.map((exercise, index) => (
+              <Card key={index}>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <p className="text-gray-700 font-medium">{exercise.question}</p>
+                    {exercise.translation && (
+                      <p className="text-sm text-gray-500 italic mb-3">
+                        {exercise.translation}
+                      </p>
+                    )}
+                    <div className="space-y-2">
+                      {exercise.options.map((option, optionIndex) => (
+                        <label key={optionIndex} className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name={`mc-${index}`}
+                            value={option}
+                            checked={mcAnswers[index] === option}
+                            onChange={(e) => handleMcAnswer(index, e.target.value)}
+                            disabled={showResults}
+                            className="text-blue-600"
+                          />
+                          <span className="text-gray-700">{option}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {showResults && (
+                      <div className="flex items-center space-x-2">
+                        {mcAnswers[index] === exercise.answer ? (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-red-500" />
+                        )}
+                        <span className="text-sm text-gray-600">
+                          Đáp án đúng: <strong>{exercise.answer}</strong>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Results Summary */}
@@ -479,15 +521,15 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
               <div>
                 <div className="text-2xl font-bold text-blue-600">{scores.fill}</div>
-                <div className="text-sm text-gray-600">Điền từ ({generatedExercises.fill_in_the_blanks.length})</div>
+                <div className="text-sm text-gray-600">Điền từ ({generatedExercises?.fill_in_the_blanks?.length || 0})</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-green-600">{scores.matching}</div>
-                <div className="text-sm text-gray-600">Nối từ ({generatedExercises.matching.length})</div>
+                <div className="text-sm text-gray-600">Nối từ ({generatedExercises?.matching?.length || 0})</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-purple-600">{scores.mc}</div>
-                <div className="text-sm text-gray-600">Trắc nghiệm ({generatedExercises.multiple_choice.length})</div>
+                <div className="text-sm text-gray-600">Trắc nghiệm ({generatedExercises?.multiple_choice?.length || 0})</div>
               </div>
             </div>
           </CardContent>
@@ -532,7 +574,7 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
               Xác nhận hoàn thành
             </h3>
             <p className="text-gray-600 mb-6">
-              Bạn đã hoàn thành tất cả các bài tập. Bạn có chắc chắn muốn tiếp tục sang phần Luyện Nghe & Nói không?
+              Bạn đã hoàn thành tất cả các bài tập. Bạn có chắc chắn muốn tiếp tục sang phần Luyện Nghe &amp; Nói không?
             </p>
             <div className="flex justify-end space-x-3">
               <Button

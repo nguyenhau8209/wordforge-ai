@@ -1,0 +1,43 @@
+---
+globs: *.ts,*.tsx
+description: Authentication and authorization patterns
+---
+
+# Authentication & Authorization
+
+## NextAuth.js Configuration
+- Use the centralized [auth configuration](mdc:src/lib/auth.ts)
+- Implement proper session handling
+- Use JWT strategy for stateless authentication
+- Configure Google OAuth provider
+
+## Session Management
+```typescript
+// Good: Proper session usage
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+
+const session = await getServerSession(authOptions)
+if (!session?.user) {
+  // Handle unauthenticated user
+}
+```
+
+## Protected Routes
+- Implement server-side authentication checks
+- Use middleware for route protection when needed
+- Redirect unauthenticated users to sign-in page
+- Handle authentication errors gracefully
+
+## User Data Access
+- Always validate user ownership of resources
+- Use user ID from session for database queries
+- Implement proper authorization checks
+- Never trust client-side user data
+
+## Security Best Practices
+- Validate all user inputs
+- Use CSRF protection
+- Implement proper session timeout
+- Store sensitive data securely
+- Use environment variables for secrets

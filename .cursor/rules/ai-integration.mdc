@@ -1,0 +1,48 @@
+---
+globs: *.ts,*.tsx
+description: AI integration patterns and guidelines
+---
+
+# AI Integration Patterns
+
+## Google Generative AI (Gemini)
+- Use the centralized [Gemini API route](mdc:src/app/api/gemini/route.ts)
+- Implement proper error handling for AI responses
+- Use structured prompts for consistent output
+- Validate AI responses before processing
+
+## AI-Generated Content
+- Generate vocabulary lessons with multiple exercise types
+- Create fill-in-the-blanks, matching, and multiple choice questions
+- Include Vietnamese translations for all content
+- Generate audio pronunciation when possible
+
+## Prompt Engineering
+```typescript
+// Good: Structured prompt with clear instructions
+const prompt = `
+Generate vocabulary exercises for the following words: ${words.join(', ')}
+Language: ${language}
+Proficiency: ${proficiency}
+Topic: ${topic}
+
+Include:
+- Fill in the blanks exercises
+- Matching exercises  
+- Multiple choice questions
+- Vietnamese translations
+- Audio pronunciation URLs when possible
+`
+```
+
+## Content Validation
+- Always validate AI-generated content structure
+- Implement fallbacks for malformed responses
+- Use TypeScript interfaces to ensure response structure
+- Handle rate limiting and API errors gracefully
+
+## Performance Considerations
+- Cache AI responses when appropriate
+- Implement loading states for AI operations
+- Use streaming for long responses when possible
+- Monitor API usage and costs

@@ -1,0 +1,59 @@
+---
+globs: *.ts,*.tsx
+description: Vietnamese localization and language support
+---
+
+# Vietnamese Localization & Language Support
+
+## Language Configuration
+- Primary language: Vietnamese (vi)
+- Secondary language: English (en)
+- Use proper Vietnamese fonts (Geist Sans/Mono)
+- Implement RTL support if needed
+
+## Text Content Guidelines
+```typescript
+// Good: Vietnamese text with proper encoding
+const vietnameseText = {
+  welcome: "Chào mừng đến với WordForge AI",
+  learnVocabulary: "Học từ vựng thông minh",
+  practice: "Luyện tập",
+  review: "Ôn tập"
+}
+```
+
+## UI Text Patterns
+- Use Vietnamese for all user-facing text
+- Provide English translations in tooltips when helpful
+- Use proper Vietnamese punctuation and spacing
+- Implement proper text wrapping for Vietnamese text
+
+## Date and Number Formatting
+```typescript
+// Good: Vietnamese date formatting
+const formatVietnameseDate = (date: Date) => {
+  return new Intl.DateTimeFormat('vi-VN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(date)
+}
+```
+
+## Input Handling
+- Support Vietnamese keyboard input
+- Handle Vietnamese diacritics properly
+- Implement proper text validation for Vietnamese
+- Use appropriate input methods for Vietnamese text
+
+## Audio and Pronunciation
+- Support Vietnamese audio pronunciation
+- Use proper phonetic notation
+- Implement audio playback controls
+- Handle Vietnamese audio file formats
+
+## Cultural Considerations
+- Use appropriate Vietnamese cultural references
+- Implement proper Vietnamese learning patterns
+- Consider Vietnamese educational approaches
+- Use familiar Vietnamese UI patterns

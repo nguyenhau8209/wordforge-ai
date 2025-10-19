@@ -1,0 +1,57 @@
+---
+globs: *.ts,*.tsx,*.js,*.jsx
+description: Coding standards and best practices
+---
+
+# Coding Standards & Best Practices
+
+## TypeScript Guidelines
+- Use strict TypeScript configuration
+- Define proper interfaces for all props and data structures
+- Use type assertions sparingly and with proper type guards
+- Prefer `interface` over `type` for object shapes
+- Use generic types for reusable components
+
+## React/Next.js Patterns
+- Use functional components with hooks
+- Implement proper error boundaries
+- Use Next.js App Router conventions
+- Prefer server components when possible, use "use client" only when necessary
+- Use proper loading and error states
+- Implement proper SEO with metadata
+
+## Component Structure
+```typescript
+// Component file structure
+interface ComponentProps {
+  // Define all props with proper types
+}
+
+export default function Component({ prop1, prop2 }: ComponentProps) {
+  // Hooks at the top
+  // Event handlers
+  // Render logic
+  return (
+    // JSX
+  )
+}
+```
+
+## File Naming
+- Components: PascalCase (e.g., `ExerciseSection.tsx`)
+- Utilities: camelCase (e.g., `auth.ts`)
+- Pages: lowercase with hyphens (e.g., `sign-in/page.tsx`)
+- API routes: descriptive names (e.g., `create/route.ts`)
+
+## Import Organization
+1. React and Next.js imports
+2. Third-party libraries
+3. Internal components and utilities
+4. Type definitions
+5. Relative imports
+
+## Error Handling
+- Use try-catch blocks for async operations
+- Implement proper error boundaries
+- Use toast notifications for user feedback
+- Log errors appropriately for debugging

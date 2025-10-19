@@ -1,0 +1,62 @@
+---
+globs: *.test.ts,*.test.tsx,*.spec.ts,*.spec.tsx
+description: Testing patterns and best practices
+---
+
+# Testing Patterns & Best Practices
+
+## Test Structure
+- Use Jest and React Testing Library
+- Follow AAA pattern (Arrange, Act, Assert)
+- Write descriptive test names
+- Group related tests with describe blocks
+
+## Component Testing
+```typescript
+// Good: Component test structure
+import { render, screen, fireEvent } from '@testing-library/react'
+import { Flashcard } from '@/components/Flashcard'
+
+describe('Flashcard Component', () => {
+  const mockProps = {
+    front: 'Hello',
+    back: 'Xin chào',
+    onFlip: jest.fn()
+  }
+
+  it('should render front text initially', () => {
+    render(<Flashcard {...mockProps} />)
+    expect(screen.getByText('Hello')).toBeInTheDocument()
+  })
+
+  it('should flip to back when clicked', () => {
+    render(<Flashcard {...mockProps} />)
+    fireEvent.click(screen.getByRole('button'))
+    expect(screen.getByText('Xin chào')).toBeInTheDocument()
+  })
+})
+```
+
+## API Route Testing
+- Test all HTTP methods
+- Test error scenarios
+- Mock external dependencies
+- Test authentication requirements
+
+## Database Testing
+- Use test database for integration tests
+- Clean up test data after each test
+- Test both success and failure scenarios
+- Mock external services
+
+## AI Integration Testing
+- Mock AI API responses
+- Test error handling for AI failures
+- Validate AI response structure
+- Test fallback scenarios
+
+## Test Coverage
+- Aim for high test coverage
+- Focus on critical business logic
+- Test edge cases and error conditions
+- Use meaningful assertions

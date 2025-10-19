@@ -1,0 +1,62 @@
+---
+globs: *.tsx,*.ts
+description: UI component patterns and styling guidelines
+---
+
+# UI Components & Styling
+
+## Component Library
+- Use Radix UI components as base primitives
+- Customize with Tailwind CSS classes
+- Follow consistent design patterns
+- Implement proper accessibility features
+
+## Styling Guidelines
+- Use Tailwind CSS utility classes
+- Implement responsive design patterns
+- Use CSS variables for theming
+- Follow consistent spacing and typography scales
+
+## Component Patterns
+```typescript
+// Good: Reusable component with proper props
+interface ButtonProps {
+  variant?: 'primary' | 'secondary' | 'outline'
+  size?: 'sm' | 'md' | 'lg'
+  children: React.ReactNode
+  onClick?: () => void
+  disabled?: boolean
+}
+
+export function Button({ variant = 'primary', size = 'md', ...props }: ButtonProps) {
+  return (
+    <button 
+      className={cn(
+        "rounded-md font-medium transition-colors",
+        variants[variant],
+        sizes[size]
+      )}
+      {...props}
+    />
+  )
+}
+```
+
+## Accessibility
+- Use semantic HTML elements
+- Implement proper ARIA labels
+- Ensure keyboard navigation
+- Test with screen readers
+- Maintain proper color contrast
+
+## State Management
+- Use React hooks for local state
+- Implement proper loading and error states
+- Use optimistic updates when appropriate
+- Handle form validation properly
+
+## Vietnamese Language Support
+- Use proper Vietnamese fonts (Geist)
+- Implement RTL support if needed
+- Handle Vietnamese text input properly
+- Use appropriate date/time formatting

@@ -1,0 +1,89 @@
+---
+globs: *.ts,*.tsx
+description: Error handling patterns and strategies
+---
+
+# Error Handling Patterns
+
+## Error Types and Handling
+- **Validation Errors**: User input validation failures
+- **Authentication Errors**: Unauthorized access attempts
+- **Database Errors**: Prisma/database operation failures
+- **AI API Errors**: External AI service failures
+- **Network Errors**: Connection and timeout issues
+
+## Error Handling Strategy
+```typescript
+// Good: Comprehensive error handling
+try {
+  const result = await riskyOperation()
+  return { success: true, data: result }
+} catch (error) {
+  console.error('Operation failed:', error)
+  
+  if (error instanceof ValidationError) {
+    return { success: false, error: 'Invalid input data' }
+  }
+  
+  if (error instanceof DatabaseError) {
+    return { success: false, error: 'Database operation failed' }
+  }
+  
+  if (error instanceof AIAPIError) {
+    return { success: false, error: 'AI service temporarily unavailable' }
+  }
+  
+  return { success: false, error: 'An unexpected error occurred' }
+}
+```
+
+## User-Facing Error Messages
+- Use clear, actionable error messages
+- Provide Vietnamese translations for all errors
+- Include helpful suggestions when possible
+- Use toast notifications for immediate feedback
+
+## Error Logging
+- Log errors with appropriate severity levels
+- Include relevant context and user information
+- Use structured logging format
+- Implement proper error monitoring
+
+## Graceful Degradation
+- Provide fallbacks for AI service failures
+- Implement offline functionality where possible
+- Show cached content when available
+- Guide users to alternative actions
+
+## Error Boundaries
+```typescript
+// Good: React error boundary
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  
+  static getDerivedStateFromError(error) {
+    return { hasError: true }
+  }
+  
+  componentDidCatch(error, errorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo)
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      return <ErrorFallback />
+    }
+    
+    return this.props.children
+  }
+}
+```
+
+## API Error Responses
+- Use consistent error response format
+- Include appropriate HTTP status codes
+- Provide detailed error information for debugging
+- Implement proper error serialization
