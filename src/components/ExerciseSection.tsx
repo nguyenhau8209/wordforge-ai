@@ -42,6 +42,11 @@ interface ExerciseSectionProps {
 }
 
 export default function ExerciseSection({ exercises, vocabulary, language, proficiency, passage, topic, onNext }: ExerciseSectionProps) {
+  // Configs
+  const DEBUG = true
+  const AUTO_ADVANCE_MS = 2000
+  const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(true)
+
   const [currentExercise, setCurrentExercise] = useState(0)
   const [fillAnswers, setFillAnswers] = useState<{ [key: number]: string }>({})
   const [matchingAnswers, setMatchingAnswers] = useState<{ [key: number]: string }>({})
@@ -53,14 +58,54 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [completedTabs, setCompletedTabs] = useState<Set<number>>(new Set())
 
+  // Helpers shared across check and render
+  const extractLetter = (value: string): string | null => {
+    const trimmed = (value ?? "").trim()
+    const match = trimmed.match(/^\s*\(?\s*([A-D])\s*[\)\.\:\-]/i)
+    if (match?.[1]) return match[1].toLowerCase()
+    const lone = trimmed.match(/^[A-D]$/i)
+    if (lone?.[0]) return lone[0].toLowerCase()
+    return null
+  }
+  const getOptionLetterByIndex = (index: number): string =>
+    String.fromCharCode("a".charCodeAt(0) + index)
+  const deriveLetterFromOptionValue = (optionValue: string, options: string[]): string | null => {
+    if (!Array.isArray(options)) return null
+    const prefixed = extractLetter(optionValue ?? "")
+    if (prefixed) return prefixed
+    const idx = options.findIndex(o => o === optionValue)
+    if (idx >= 0) return getOptionLetterByIndex(idx)
+    return null
+  }
+
+  // Chuẩn hóa định dạng options từ AI (có thể trả về array | object | string)
+  const normalizeOptions = (options: unknown): string[] => {
+    if (Array.isArray(options)) {
+      return (options as unknown[]).filter((o): o is string => typeof o === "string")
+    }
+    if (options && typeof options === "object") {
+      const entries = Object.entries(options as Record<string, unknown>)
+      // Sắp xếp theo key để giữ thứ tự A, B, C, D
+      entries.sort((a, b) => a[0].localeCompare(b[0], undefined, { sensitivity: "base" }))
+      return entries.map(([k, v]) => `${k}) ${String(v ?? "")}`.trim())
+    }
+    if (typeof options === "string") {
+      return options
+        .split(/\r?\n|[;,|]/)
+        .map(s => s.trim())
+        .filter(Boolean)
+    }
+    return []
+  }
+
   const generateExercises = useCallback(async () => {
-    console.log("Starting exercise generation with:", { passage, vocabulary, language, proficiency })
+    if (DEBUG) console.log("Bắt đầu tạo bài luyện tập với:", { passage, vocabulary, language, proficiency })
     
     let passageToUse = passage
 
-    // If no passage is available, generate one first
+    // Nếu không có đoạn văn, tạo một đoạn văn mới trước
     if (!passage || passage.trim() === "") {
-      console.log("No passage available, generating one first...")
+      if (DEBUG) console.log("Không có đoạn văn, đang tạo đoạn văn mới...")
       try {
         const passageResponse = await fetch("/api/gemini", {
           method: "POST",
@@ -79,14 +124,14 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
         if (passageResponse.ok) {
           const passageData = await passageResponse.json()
           passageToUse = passageData.passage
-          console.log("Generated passage for exercises:", passageToUse)
+          if (DEBUG) console.log("Đã tạo đoạn văn cho bài luyện tập:", passageToUse)
         } else {
-          console.error("Failed to generate passage for exercises")
+          console.error("Không thể tạo đoạn văn cho bài luyện tập")
           toast.error("Không thể tạo đoạn văn cho bài luyện tập. Vui lòng quay lại bước trước.")
           return
         }
       } catch (error) {
-        console.error("Error generating passage for exercises:", error)
+        console.error("Lỗi khi tạo đoạn văn cho bài luyện tập:", error)
         toast.error("Không thể tạo đoạn văn cho bài luyện tập. Vui lòng quay lại bước trước.")
         return
       }
@@ -110,42 +155,47 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
 
       if (response.ok) {
         const data = await response.json()
-        console.log("Generated exercises:", data.exercises)
-        console.log("Exercise data structure:", {
-          fill_in_the_blanks: data.exercises?.fill_in_the_blanks?.length || 0,
-          matching: data.exercises?.matching?.length || 0,
-          multiple_choice: data.exercises?.multiple_choice?.length || 0
-        })
-        console.log("Setting generatedExercises to:", data.exercises)
+        if (DEBUG) {
+          console.log("Đã tạo bài luyện tập:", data.exercises)
+          console.log("Cấu trúc dữ liệu bài luyện tập:", {
+            fill_in_the_blanks: data.exercises?.fill_in_the_blanks?.length || 0,
+            matching: data.exercises?.matching?.length || 0,
+            multiple_choice: data.exercises?.multiple_choice?.length || 0
+          })
+          console.log("Đang cập nhật generatedExercises:", data.exercises)
+        }
         setGeneratedExercises(data.exercises)
-        console.log("setGeneratedExercises called")
+        if (DEBUG) console.log("Đã gọi setGeneratedExercises")
       } else {
         const error = await response.json()
-        console.error("API error:", error)
+        console.error("Lỗi API:", error)
         toast.error(error.error || "Có lỗi xảy ra khi tạo bài luyện tập")
       }
     } catch (error) {
-      console.error("Error generating exercises:", error)
+      console.error("Lỗi khi tạo bài luyện tập:", error)
       toast.error("Có lỗi xảy ra khi tạo bài luyện tập")
     } finally {
       setIsGeneratingExercises(false)
     }
-  }, [passage, vocabulary, language, proficiency, topic])
+  }, [passage, vocabulary, language, proficiency, topic, DEBUG])
 
-  // Generate exercises when component mounts if not provided
+  // Tạo bài luyện tập khi component được mount nếu chưa được cung cấp
   useEffect(() => {
-    console.log("ExerciseSection mounted with:", {
-      exercises: !!exercises,
-      generatedExercises: !!generatedExercises,
-      passage: !!passage,
-      vocabulary: vocabulary.length
-    })
+    if (DEBUG) {
+      console.log("ExerciseSection đã được mount với:", {
+        exercises: !!exercises,
+        generatedExercises: !!generatedExercises,
+        passage: !!passage,
+        vocabCount: vocabulary?.length ?? 0
+      })
+    }
     
     if (!generatedExercises) {
-      console.log("Generating exercises with passage:", passage)
+      if (DEBUG) console.log("Đang tạo bài luyện tập với đoạn văn:", passage)
       generateExercises()
     }
-  }, [exercises, generatedExercises, passage, vocabulary.length, generateExercises])
+    // Chỉ phụ thuộc các tham số sinh bài tập; tránh phụ thuộc vào length gây re-run không cần thiết
+  }, [exercises, generatedExercises, passage, language, proficiency, topic, vocabulary, generateExercises, DEBUG])
 
   const exerciseTypes = generatedExercises ? [
     { name: "Điền từ vào chỗ trống", count: generatedExercises.fill_in_the_blanks.length },
@@ -153,13 +203,15 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
     { name: "Trắc nghiệm", count: generatedExercises.multiple_choice.length }
   ] : []
 
-  // Debug logging
-  console.log("ExerciseSection render state:", {
-    generatedExercises: !!generatedExercises,
-    isGeneratingExercises,
-    exerciseTypes: exerciseTypes.length,
-    currentExercise
-  })
+  // Ghi log debug
+  if (DEBUG) {
+    console.log("Trạng thái render của ExerciseSection:", {
+      generatedExercises: !!generatedExercises,
+      isGeneratingExercises,
+      exerciseTypes: exerciseTypes.length,
+      currentExercise
+    })
+  }
 
   const handleFillAnswer = (index: number, answer: string) => {
     setFillAnswers(prev => ({ ...prev, [index]: answer }))
@@ -176,27 +228,86 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
   const checkAnswers = () => {
     if (!generatedExercises) return
 
+    const normalize = (value?: string) => (value ?? "").toLowerCase().trim()
+
     let fillScore = 0
     let matchingScore = 0
     let mcScore = 0
 
-    // Check fill in the blanks
+    // Kiểm tra bài điền từ vào chỗ trống
     generatedExercises.fill_in_the_blanks.forEach((exercise, index) => {
-      if (fillAnswers[index]?.toLowerCase().trim() === exercise.answer.toLowerCase().trim()) {
+      const userRaw = fillAnswers[index]
+      const correctRaw = exercise.answer
+      const user = normalize(userRaw)
+      const correct = normalize(correctRaw)
+      const isCorrect = user === correct
+      if (DEBUG) {
+        console.log("[Điền từ] So sánh câu", {
+          index,
+          question: exercise.question,
+          userRaw,
+          correctRaw,
+          userNormalized: user,
+          correctNormalized: correct,
+          isCorrect
+        })
+      }
+      if (isCorrect) {
         fillScore++
       }
     })
 
-    // Check matching
+    // Kiểm tra bài nối từ
     generatedExercises.matching.forEach((exercise, index) => {
-      if (matchingAnswers[index] === exercise.meaning) {
+      const selectedRaw = matchingAnswers[index]
+      const correctRaw = exercise.meaning
+      const selected = normalize(selectedRaw)
+      const correct = normalize(correctRaw)
+      const isCorrect = selected === correct
+      if (DEBUG) {
+        console.log("[Nối từ] So sánh câu", {
+          index,
+          word: exercise.word,
+          selectedRaw,
+          correctRaw,
+          selectedNormalized: selected,
+          correctNormalized: correct,
+          isCorrect
+        })
+      }
+      if (isCorrect) {
         matchingScore++
       }
     })
 
-    // Check multiple choice
+    // Kiểm tra bài trắc nghiệm
     generatedExercises.multiple_choice.forEach((exercise, index) => {
-      if (mcAnswers[index] === exercise.answer) {
+      const normalizedOptions = normalizeOptions(exercise.options as unknown)
+      const userRaw = mcAnswers[index]
+      const correctRaw = exercise.answer
+      const userLetter =
+        deriveLetterFromOptionValue(userRaw ?? "", normalizedOptions) ??
+        extractLetter(userRaw ?? "") ??
+        null
+      // Try to get correct letter from provided answer or from options mapping
+      const correctLetter =
+        extractLetter(correctRaw ?? "") ??
+        deriveLetterFromOptionValue(correctRaw ?? "", normalizedOptions) ??
+        null
+      const isCorrect = !!userLetter && !!correctLetter && userLetter === correctLetter
+      if (DEBUG) {
+        console.log("[Trắc nghiệm] So sánh câu", {
+          index,
+          question: exercise.question,
+          options: normalizedOptions,
+          userRaw,
+          correctRaw,
+          userLetter,
+          correctLetter,
+          isCorrect
+        })
+      }
+      if (isCorrect) {
         mcScore++
       }
     })
@@ -204,11 +315,20 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
     setScores({ fill: fillScore, matching: matchingScore, mc: mcScore })
     setShowResults(true)
 
-    // Mark current tab as completed
+    // Đánh dấu tab hiện tại đã hoàn thành
     setCompletedTabs(prev => new Set([...prev, currentExercise]))
 
     const totalScore = fillScore + matchingScore + mcScore
     const totalQuestions = generatedExercises.fill_in_the_blanks.length + generatedExercises.matching.length + generatedExercises.multiple_choice.length
+    if (DEBUG) {
+      console.log("[Tổng kết] Điểm số", {
+        fillScore,
+        matchingScore,
+        mcScore,
+        totalScore,
+        totalQuestions
+      })
+    }
     
     if (totalScore === totalQuestions) {
       toast.success("Tuyệt vời! Bạn đã trả lời đúng tất cả câu hỏi!")
@@ -216,12 +336,12 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
       toast.info(`Bạn đã trả lời đúng ${totalScore}/${totalQuestions} câu hỏi`)
     }
 
-    // Auto-navigate to next tab if not the last one
-    if (currentExercise < exerciseTypes.length - 1) {
+    // Tự động chuyển sang tab tiếp theo nếu không phải tab cuối cùng
+    if (autoAdvanceEnabled && currentExercise < exerciseTypes.length - 1) {
       setTimeout(() => {
         setCurrentExercise(currentExercise + 1)
         setShowResults(false)
-      }, 2000)
+      }, AUTO_ADVANCE_MS)
     }
   }
 
@@ -235,7 +355,7 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
   }
 
   const handleNext = () => {
-    // Check if all tabs are completed
+    // Kiểm tra xem tất cả các tab đã hoàn thành chưa
     const allTabsCompleted = completedTabs.size === exerciseTypes.length
     if (allTabsCompleted) {
       setShowConfirmation(true)
@@ -278,7 +398,7 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
   }
 
   if (!generatedExercises && !isGeneratingExercises) {
-    console.log("Rendering error state - no exercises and not generating", {
+    console.log("Đang render trạng thái lỗi - không có bài tập và không đang tạo", {
       generatedExercises,
       isGeneratingExercises,
       exercises
@@ -319,7 +439,7 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
     )
   }
 
-  console.log("Rendering main exercise interface with:", {
+  console.log("Đang render giao diện bài luyện tập chính với:", {
     generatedExercises: !!generatedExercises,
     exerciseTypes: exerciseTypes.length,
     currentExercise,
@@ -340,7 +460,7 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
         </p>
       </div>
 
-      {/* Exercise Navigation */}
+      {/* Điều hướng bài luyện tập */}
       <div className="flex justify-center mb-8">
         <div className="flex space-x-2">
           {exerciseTypes.map((type, index) => (
@@ -349,6 +469,8 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
               variant={currentExercise === index ? "default" : "outline"}
               onClick={() => setCurrentExercise(index)}
               className="px-4 py-2"
+              aria-label={`Chuyển tới dạng bài: ${type.name}`}
+              aria-current={currentExercise === index ? "page" : undefined}
             >
               {type.name} ({type.count})
             </Button>
@@ -356,7 +478,7 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
         </div>
       </div>
 
-      {/* Exercise Content */}
+      {/* Nội dung bài luyện tập */}
       <div className="mb-8">
         {currentExercise === 0 && (
           <div className="space-y-6">
@@ -366,10 +488,15 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
                 <CardContent className="pt-6">
                   <div className="space-y-4">
                     <p className="text-gray-700">
-                      {exercise.question.split('___').map((part, partIndex) => (
+                      {(() => {
+                        // Collapse multiple consecutive blanks to a single blank, handle 3+ underscores
+                        const sanitized = (exercise?.question ?? "")
+                          .replace(/(_{3,}\s*){2,}/g, "___ ")
+                        const parts = sanitized.split(/_{3,}/)
+                        return parts.map((part, partIndex) => (
                         <span key={partIndex}>
                           {part}
-                          {partIndex < exercise.question.split('___').length - 1 && (
+                          {partIndex < parts.length - 1 && (
                             <Input
                               value={fillAnswers[index] || ''}
                               onChange={(e) => handleFillAnswer(index, e.target.value)}
@@ -379,7 +506,8 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
                             />
                           )}
                         </span>
-                      ))}
+                        ))
+                      })()}
                     </p>
                     {exercise.translation && (
                       <p className="text-sm text-gray-500 italic mt-2">
@@ -475,8 +603,8 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
                         {exercise.translation}
                       </p>
                     )}
-                    <div className="space-y-2">
-                      {exercise.options.map((option, optionIndex) => (
+                    <div className="space-y-2" role="radiogroup" aria-label={`Lựa chọn câu trả lời cho câu ${index + 1}`}>
+                      {normalizeOptions(exercise.options as unknown).map((option, optionIndex) => (
                         <label key={optionIndex} className="flex items-center space-x-2 cursor-pointer">
                           <input
                             type="radio"
@@ -486,6 +614,8 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
                             onChange={(e) => handleMcAnswer(index, e.target.value)}
                             disabled={showResults}
                             className="text-blue-600"
+                            aria-checked={mcAnswers[index] === option}
+                            aria-label={`Chọn đáp án: ${option}`}
                           />
                           <span className="text-gray-700">{option}</span>
                         </label>
@@ -493,7 +623,18 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
                     </div>
                     {showResults && (
                       <div className="flex items-center space-x-2">
-                        {mcAnswers[index] === exercise.answer ? (
+                        {(() => {
+                          const normalizedOptions = normalizeOptions(exercise.options as unknown)
+                          const userLetter =
+                            deriveLetterFromOptionValue(mcAnswers[index] ?? "", normalizedOptions) ??
+                            extractLetter(mcAnswers[index] ?? "") ??
+                            null
+                          const correctLetter =
+                            extractLetter(exercise.answer ?? "") ??
+                            deriveLetterFromOptionValue(exercise.answer ?? "", normalizedOptions) ??
+                            null
+                          return !!userLetter && !!correctLetter && userLetter === correctLetter
+                        })() ? (
                           <CheckCircle className="h-5 w-5 text-green-500" />
                         ) : (
                           <XCircle className="h-5 w-5 text-red-500" />
@@ -511,7 +652,7 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
         )}
       </div>
 
-      {/* Results Summary */}
+      {/* Tóm tắt kết quả */}
       {showResults && (
         <Card className="mb-8 bg-blue-50">
           <CardHeader>
@@ -532,11 +673,23 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
                 <div className="text-sm text-gray-600">Trắc nghiệm ({generatedExercises?.multiple_choice?.length || 0})</div>
               </div>
             </div>
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={autoAdvanceEnabled}
+                  onChange={(e) => setAutoAdvanceEnabled(e.target.checked)}
+                  aria-label="Tự động chuyển sang tab tiếp theo sau khi chấm"
+                />
+                Tự động chuyển sang tab tiếp theo sau khi chấm
+              </label>
+              <span className="text-xs text-gray-500">(sau {AUTO_ADVANCE_MS / 1000}s)</span>
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Action Buttons */}
+      {/* Các nút hành động */}
       <div className="flex justify-center space-x-4">
         {!showResults ? (
           <Button
@@ -566,7 +719,7 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
         )}
       </div>
 
-      {/* Confirmation Dialog */}
+      {/* Hộp thoại xác nhận */}
       {showConfirmation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md mx-4">

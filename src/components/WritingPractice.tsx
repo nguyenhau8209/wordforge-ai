@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { ArrowRight, CheckCircle, XCircle, RotateCcw, PenTool, BookOpen, Star, AlertCircle } from "lucide-react"
+import { ArrowRight, CheckCircle, RotateCcw, PenTool, BookOpen, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 
 interface VocabularyItem {
@@ -77,6 +77,87 @@ export default function WritingPractice({ topic, vocabulary, language, proficien
   const [showAnalysis, setShowAnalysis] = useState(false)
   const [correctedWriting, setCorrectedWriting] = useState("")
 
+  // Local storage keys
+  const draftStorageKey = `wfai:writing:draft:${topic}:${language}:${proficiency}`
+  const historyStorageKey = `wfai:writing:history:${topic}:${language}:${proficiency}`
+
+  // Undo/Redo history
+  const historyStackRef = useRef<string[]>([])
+  const historyIndexRef = useRef<number>(-1)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Load draft on mount
+  useEffect(() => {
+    try {
+      const saved = typeof window !== "undefined" ? window.localStorage.getItem(draftStorageKey) : null
+      if (saved) {
+        setWriting(saved)
+        historyStackRef.current = [saved]
+        historyIndexRef.current = 0
+      } else {
+        historyStackRef.current = [""]
+        historyIndexRef.current = 0
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [draftStorageKey])
+
+  // Debounced auto-save on change
+  useEffect(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(draftStorageKey, writing)
+        }
+      } catch {
+        // ignore storage errors
+      }
+    }, 500)
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [writing, draftStorageKey])
+
+  // Track writing history for undo/redo (throttled push)
+  const lastPushedRef = useRef<number>(0)
+  useEffect(() => {
+    const now = Date.now()
+    const THROTTLE_MS = 700
+    const stack = historyStackRef.current
+    const idx = historyIndexRef.current
+    if (stack[idx] === writing) return
+    if (now - lastPushedRef.current < THROTTLE_MS) return
+    // If we've undone, discard redo branch
+    if (idx < stack.length - 1) {
+      stack.splice(idx + 1)
+    }
+    stack.push(writing)
+    // Cap history
+    if (stack.length > 100) stack.shift()
+    historyIndexRef.current = stack.length - 1
+    lastPushedRef.current = now
+  }, [writing])
+
+  const handleUndo = () => {
+    const idx = historyIndexRef.current
+    const stack = historyStackRef.current
+    if (idx > 0) {
+      historyIndexRef.current = idx - 1
+      setWriting(stack[historyIndexRef.current] ?? "")
+    }
+  }
+
+  const handleRedo = () => {
+    const idx = historyIndexRef.current
+    const stack = historyStackRef.current
+    if (idx < stack.length - 1) {
+      historyIndexRef.current = idx + 1
+      setWriting(stack[historyIndexRef.current] ?? "")
+    }
+  }
+
   const generatePrompt = async () => {
     setIsGeneratingPrompt(true)
     try {
@@ -115,6 +196,20 @@ export default function WritingPractice({ topic, vocabulary, language, proficien
       return
     }
 
+    // Validate word count if prompt exists
+    if (writingPrompt) {
+      const min = writingPrompt.word_count_min ?? 0
+      const max = writingPrompt.word_count_max ?? Number.MAX_SAFE_INTEGER
+      if (wordCount < min) {
+        toast.error(`Bài viết quá ngắn. Yêu cầu tối thiểu ${min} từ.`)
+        return
+      }
+      if (wordCount > max) {
+        toast.error(`Bài viết quá dài. Tối đa cho phép ${max} từ.`)
+        return
+      }
+    }
+
     setIsAnalyzing(true)
     try {
       const response = await fetch("/api/gemini", {
@@ -137,6 +232,24 @@ export default function WritingPractice({ topic, vocabulary, language, proficien
         setCorrectedWriting(data.analysis.corrected_version)
         setShowAnalysis(true)
         toast.success("Phân tích hoàn thành!")
+
+         // Save to history (cap 5 entries)
+         try {
+           const existing = typeof window !== "undefined" ? window.localStorage.getItem(historyStorageKey) : null
+           const list: Array<{ ts: number; writing: string; corrected: string; overall: number }> = existing ? JSON.parse(existing) : []
+           const entry = {
+             ts: Date.now(),
+             writing,
+             corrected: data.analysis.corrected_version,
+             overall: data.analysis.overall_score ?? 0,
+           }
+           const next = [entry, ...list].slice(0, 5)
+           if (typeof window !== "undefined") {
+             window.localStorage.setItem(historyStorageKey, JSON.stringify(next))
+           }
+         } catch {
+           // ignore storage errors
+         }
       } else {
         const error = await response.json()
         toast.error(error.error || "Có lỗi xảy ra khi phân tích bài viết")
@@ -168,7 +281,54 @@ export default function WritingPractice({ topic, vocabulary, language, proficien
     return "bg-red-100"
   }
 
-  const wordCount = writing.trim().split(/\s+/).filter(word => word.length > 0).length
+  const wordCount = useMemo(() => {
+    return writing.trim().split(/\s+/).filter(word => word.length > 0).length
+  }, [writing])
+
+  // History list and compare
+  const [historyList, setHistoryList] = useState<Array<{ ts: number; writing: string; corrected: string; overall: number }>>([])
+  const [selectedHistoryTs, setSelectedHistoryTs] = useState<number | "">("")
+  const [showCompare, setShowCompare] = useState(false)
+
+  useEffect(() => {
+    try {
+      const existing = typeof window !== "undefined" ? window.localStorage.getItem(historyStorageKey) : null
+      const list = existing ? JSON.parse(existing) : []
+      setHistoryList(Array.isArray(list) ? list : [])
+    } catch {
+      setHistoryList([])
+    }
+  }, [historyStorageKey, showAnalysis])
+
+  const loadHistory = () => {
+    if (!selectedHistoryTs) return
+    const item = historyList.find(h => h.ts === selectedHistoryTs)
+    if (!item) {
+      toast.error("Không tìm thấy mục lịch sử đã chọn")
+      return
+    }
+    setWriting(item.writing)
+    setCorrectedWriting(item.corrected)
+    setShowAnalysis(true)
+    toast.success("Đã tải bài viết từ lịch sử")
+  }
+
+  // Download helpers
+  const downloadText = (filename: string, content: string) => {
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadJson = (filename: string, obj: unknown) => {
+    downloadText(filename, JSON.stringify(obj, null, 2))
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -254,6 +414,22 @@ export default function WritingPractice({ topic, vocabulary, language, proficien
                   </span>
                   <div className="flex space-x-2">
                     <Button
+                      onClick={handleUndo}
+                      variant="outline"
+                      size="sm"
+                      aria-label="Hoàn tác"
+                    >
+                      ⎌
+                    </Button>
+                    <Button
+                      onClick={handleRedo}
+                      variant="outline"
+                      size="sm"
+                      aria-label="Làm lại thao tác"
+                    >
+                      ↻
+                    </Button>
+                    <Button
                       onClick={resetWriting}
                       variant="outline"
                       size="sm"
@@ -279,6 +455,28 @@ export default function WritingPractice({ topic, vocabulary, language, proficien
                       )}
                     </Button>
                   </div>
+                </div>
+
+                {/* History controls */}
+                <div className="flex items-center gap-2 mt-3">
+                  <Label htmlFor="history" className="text-sm text-gray-600">Lịch sử:</Label>
+                  <select
+                    id="history"
+                    className="border rounded px-2 py-1 text-sm"
+                    value={selectedHistoryTs}
+                    onChange={(e) => setSelectedHistoryTs(e.target.value ? Number(e.target.value) : "")}
+                    aria-label="Chọn một mục lịch sử bài viết"
+                  >
+                    <option value="">Chọn mục lịch sử...</option>
+                    {historyList.map(h => (
+                      <option key={h.ts} value={h.ts}>
+                        {new Date(h.ts).toLocaleString()} - Điểm: {h.overall}/10
+                      </option>
+                    ))}
+                  </select>
+                  <Button onClick={loadHistory} variant="outline" size="sm" disabled={!selectedHistoryTs}>
+                    Tải lịch sử
+                  </Button>
                 </div>
               </div>
             </div>
@@ -465,9 +663,68 @@ export default function WritingPractice({ topic, vocabulary, language, proficien
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-gray-800 leading-relaxed">{correctedWriting}</p>
               </div>
+
+              {/* Export and Compare */}
+              <div className="flex flex-wrap gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => downloadText(`writing_${topic}_${Date.now()}.txt`, writing)}
+                  aria-label="Tải bài viết gốc"
+                >
+                  Tải bài gốc (.txt)
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => downloadText(`corrected_${topic}_${Date.now()}.txt`, correctedWriting)}
+                  aria-label="Tải bài viết đã sửa"
+                >
+                  Tải bài đã sửa (.txt)
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => analysis && downloadJson(`analysis_${topic}_${Date.now()}.json`, analysis)}
+                  aria-label="Tải phân tích"
+                >
+                  Tải phân tích (.json)
+                </Button>
+                <label className="ml-auto flex items-center gap-2 text-sm text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={showCompare}
+                    onChange={(e) => setShowCompare(e.target.checked)}
+                    aria-label="Bật so sánh phiên bản"
+                  />
+                  So sánh phiên bản
+                </label>
+              </div>
             </CardContent>
           </Card>
 
+          {/* Compare original vs corrected */}
+          {showCompare && (
+            <Card>
+              <CardHeader>
+                <CardTitle>So sánh phiên bản</CardTitle>
+                <CardDescription>Xem song song bài gốc và bài đã sửa</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-2">Bài gốc</h4>
+                    <div className="bg-white border rounded p-3 min-h-32">
+                      <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">{writing}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-2">Bài đã sửa</h4>
+                    <div className="bg-white border rounded p-3 min-h-32">
+                      <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">{correctedWriting}</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {/* Action Buttons */}
           <div className="flex justify-center space-x-4">
             <Button

@@ -13,6 +13,26 @@ interface VocabularyItem {
   vietnamese_meaning: string
 }
 
+interface ExerciseData {
+  fill_in_the_blanks: Array<{
+    question: string
+    answer: string
+    translation?: string
+    options?: string[]
+  }>
+  matching: Array<{
+    word: string
+    meaning: string
+    translation?: string
+  }>
+  multiple_choice: Array<{
+    question: string
+    options: string[]
+    answer: string
+    translation?: string
+  }>
+}
+
 interface LessonData {
   topic: string
   wordCount: number
@@ -26,7 +46,7 @@ export default function LessonFlow({ lessonData, onComplete }: { lessonData: Les
   const [currentStep, setCurrentStep] = useState(lessonData.step)
   const [passage, setPassage] = useState("")
   const [correctedWriting, setCorrectedWriting] = useState("")
-  const [exercises, setExercises] = useState<any>(null)
+  const [exercises, setExercises] = useState<ExerciseData | null>(null)
 
   const handleVocabularyNext = (generatedPassage: string) => {
     setPassage(generatedPassage)

@@ -3,6 +3,67 @@ import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
 
+// Ưu tiên thử các model nhanh trước; chuyển model dự phòng khi quá tải (503)
+const PREFERRED_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+];
+
+function isTransientGeminiError(error: unknown): boolean {
+  const message = String(error);
+  // Nhận diện 503/overloaded/timeouts từ SDK/Gateway
+  return (
+    message.includes("503") ||
+    message.toLowerCase().includes("service unavailable") ||
+    message.toLowerCase().includes("overloaded") ||
+    message.toLowerCase().includes("timeout") ||
+    message.toLowerCase().includes("temporarily")
+  );
+}
+
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Gọi Gemini với retry + exponential backoff + model fallback
+async function generateTextWithRetry(
+  prompt: string,
+  models: string[] = PREFERRED_MODELS,
+  maxRetriesPerModel = 3
+): Promise<string> {
+  let lastError: unknown;
+
+  for (const modelName of models) {
+    for (let attempt = 0; attempt < maxRetriesPerModel; attempt++) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text();
+      } catch (error) {
+        lastError = error;
+        const transient = isTransientGeminiError(error);
+        const delayMs = Math.min(
+          2000 + Math.floor(Math.random() * 300), // jitter
+          5000
+        ) * Math.pow(2, attempt); // exponential backoff
+
+        if (transient && attempt < maxRetriesPerModel - 1) {
+          await sleep(delayMs);
+          continue;
+        }
+
+        // Nếu lỗi không phải transient, chuyển ngay sang model kế tiếp
+        if (!transient) break;
+      }
+    }
+    // Thử model tiếp theo
+  }
+
+  throw lastError ?? new Error("Gemini generation failed");
+}
+
 interface VocabularyItem {
   word: string;
   type: string;
@@ -30,39 +91,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Trong file bạn có đoạn genAI.getGenerativeModel
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); // SỬA TẠI ĐÂY
-
     switch (action) {
       case "generate_vocabulary":
-        return await generateVocabulary(model, topic, wordCount, language, proficiency);
+        return await generateVocabulary(topic, wordCount, language, proficiency);
 
       case "generate_passage":
-        return await generatePassage(model, topic, vocabulary, language, proficiency);
+        return await generatePassage(topic, vocabulary, language, proficiency);
 
       case "generate_exercises":
-        return await generateExercises(model, passage, vocabulary, language, proficiency);
+        return await generateExercises(passage, vocabulary, language, proficiency);
 
       case "generate_writing_prompt":
-        return await generateWritingPrompt(model, topic, vocabulary, language, proficiency);
+        return await generateWritingPrompt(topic, vocabulary, language, proficiency);
 
       case "analyze_writing":
-        return await analyzeWriting(model, writing, vocabulary, language, proficiency);
+        return await analyzeWriting(writing, vocabulary, language, proficiency);
 
       default:
         return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
   } catch (error) {
     console.error("Gemini API error:", error);
+    const status = isTransientGeminiError(error) ? 503 : 500;
     return NextResponse.json(
-      { error: "Failed to process request" },
-      { status: 500 }
+      {
+        error: "Failed to process request",
+        suggestion:
+          status === 503
+            ? "Dịch vụ AI đang quá tải. Vui lòng thử lại sau ít phút."
+            : undefined,
+      },
+      { status }
     );
   }
 }
 
 async function generateVocabulary(
-  model: GenerativeModel,
   topic: string,
   wordCount: number,
   language: string,
@@ -121,9 +185,7 @@ ${isBasicLevel ? `[
 ]`}`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const text = await generateTextWithRetry(prompt);
 
     // Extract JSON from response
     const jsonMatch = text.match(/\[[\s\S]*\]/);
@@ -135,14 +197,21 @@ ${isBasicLevel ? `[
     return NextResponse.json({ vocabulary });
   } catch (error) {
     console.error("Error generating vocabulary:", error);
+    const status = isTransientGeminiError(error) ? 503 : 500;
     return NextResponse.json(
-      { error: "Failed to generate vocabulary" },
-      { status: 500 }
+      {
+        error: "Failed to generate vocabulary",
+        suggestion:
+          status === 503
+            ? "Dịch vụ AI đang quá tải. Vui lòng thử lại sau."
+            : undefined,
+      },
+      { status }
     );
   }
 }
 
-async function generatePassage(model: GenerativeModel, topic: string, vocabulary: VocabularyItem[], language: string, proficiency: string) {
+async function generatePassage(topic: string, vocabulary: VocabularyItem[], language: string, proficiency: string) {
   const wordList = vocabulary.map((v) => v.word).join(", ");
 
   // Map language names
@@ -164,22 +233,26 @@ Danh sách từ vựng cần sử dụng: ${wordList}.
 Định dạng đầu ra chỉ là đoạn văn bản (text) không bao gồm bất kỳ lời dẫn hay giải thích nào khác.`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const passage = response.text().trim();
+    const passage = (await generateTextWithRetry(prompt)).trim();
 
     return NextResponse.json({ passage });
   } catch (error) {
     console.error("Error generating passage:", error);
+    const status = isTransientGeminiError(error) ? 503 : 500;
     return NextResponse.json(
-      { error: "Failed to generate passage" },
-      { status: 500 }
+      {
+        error: "Failed to generate passage",
+        suggestion:
+          status === 503
+            ? "Dịch vụ AI đang quá tải. Vui lòng thử lại sau."
+            : undefined,
+      },
+      { status }
     );
   }
 }
 
 async function generateExercises(
-  model: GenerativeModel,
   passage: string,
   vocabulary: VocabularyItem[],
   language: string,
@@ -222,9 +295,7 @@ Các dạng bài tập yêu cầu:
 - "multiple_choice": (Array các object câu hỏi, lựa chọn và đáp án)`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const text = await generateTextWithRetry(prompt);
 
     // Extract JSON from response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -236,15 +307,21 @@ Các dạng bài tập yêu cầu:
     return NextResponse.json({ exercises });
   } catch (error) {
     console.error("Error generating exercises:", error);
+    const status = isTransientGeminiError(error) ? 503 : 500;
     return NextResponse.json(
-      { error: "Failed to generate exercises" },
-      { status: 500 }
+      {
+        error: "Failed to generate exercises",
+        suggestion:
+          status === 503
+            ? "Dịch vụ AI đang quá tải. Vui lòng thử lại sau."
+            : undefined,
+      },
+      { status }
     );
   }
 }
 
 async function generateWritingPrompt(
-  model: GenerativeModel,
   topic: string,
   vocabulary: VocabularyItem[],
   language: string,
@@ -286,9 +363,7 @@ Yêu cầu:
 }`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const text = await generateTextWithRetry(prompt);
 
     // Extract JSON from response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -300,15 +375,21 @@ Yêu cầu:
     return NextResponse.json({ writingPrompt });
   } catch (error) {
     console.error("Error generating writing prompt:", error);
+    const status = isTransientGeminiError(error) ? 503 : 500;
     return NextResponse.json(
-      { error: "Failed to generate writing prompt" },
-      { status: 500 }
+      {
+        error: "Failed to generate writing prompt",
+        suggestion:
+          status === 503
+            ? "Dịch vụ AI đang quá tải. Vui lòng thử lại sau."
+            : undefined,
+      },
+      { status }
     );
   }
 }
 
 async function analyzeWriting(
-  model: GenerativeModel,
   writing: string,
   vocabulary: VocabularyItem[],
   language: string,
@@ -327,6 +408,10 @@ async function analyzeWriting(
   const targetLanguage = languageMap[language] || language;
 
   const prompt = `Phân tích bài viết ${targetLanguage} của người học và đưa ra phản hồi chi tiết.
+
+QUAN TRỌNG:
+- Toàn bộ phản hồi, nội dung văn bản, lời giải thích và các giá trị trong JSON phải bằng tiếng Việt (vi-VN) ngoại trừ phần corrected_version: Phiên bản đã sửa của bài viết, không sử dụng tiếng Anh.
+- Chỉ trả về JSON đúng cấu trúc, không thêm lời dẫn, không thêm tiền tố/hậu tố.
 
 **Bài viết của người học:**
 "${writing}"
@@ -386,9 +471,7 @@ Yêu cầu phân tích:
 }`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const text = await generateTextWithRetry(prompt);
 
     // Extract JSON from response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -400,9 +483,16 @@ Yêu cầu phân tích:
     return NextResponse.json({ analysis });
   } catch (error) {
     console.error("Error analyzing writing:", error);
+    const status = isTransientGeminiError(error) ? 503 : 500;
     return NextResponse.json(
-      { error: "Failed to analyze writing" },
-      { status: 500 }
+      {
+        error: "Failed to analyze writing",
+        suggestion:
+          status === 503
+            ? "Dịch vụ AI đang quá tải. Vui lòng thử lại sau."
+            : undefined,
+      },
+      { status }
     );
   }
 }
