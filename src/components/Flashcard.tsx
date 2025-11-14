@@ -177,7 +177,7 @@ export default function Flashcard({
         <div className="text-center mt-4">
           <Button
             variant="ghost"
-            onClick={() => setIsFlipped(true)}
+            onClick={handleFlip}
             className="text-gray-500 hover:text-gray-700"
           >
             <RotateCcw className="h-4 w-4 mr-2" />

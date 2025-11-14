@@ -42,7 +42,7 @@ interface LessonData {
   step: number
 }
 
-export default function LessonFlow({ lessonData, onComplete }: { lessonData: LessonData, onComplete: () => void }) {
+export default function LessonFlow({ lessonData, onComplete }: { lessonData: LessonData, onComplete: (data: LessonData) => void }) {
   const [currentStep, setCurrentStep] = useState(lessonData.step)
   const [passage, setPassage] = useState("")
   const [correctedWriting, setCorrectedWriting] = useState("")
@@ -67,7 +67,14 @@ export default function LessonFlow({ lessonData, onComplete }: { lessonData: Les
   }
 
   const handleLessonComplete = () => {
-    onComplete()
+    onComplete({
+      topic: lessonData.topic,
+      language: lessonData.language,
+      proficiency: lessonData.proficiency,
+      vocabulary: lessonData.vocabulary,
+      wordCount: lessonData.wordCount,
+      step: lessonData.step
+    })
   }
 
   return (

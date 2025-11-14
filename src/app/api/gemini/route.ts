@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
 
-// Ưu tiên thử các model nhanh trước; chuyển model dự phòng khi quá tải (503)
+// Sử dụng các model Gemini mới nhất (tháng 11/2025)
 const PREFERRED_MODELS = [
   "gemini-2.5-flash",
-  "gemini-2.0-flash",
-  "gemini-1.5-flash",
+  "gemini-2.0-flash-exp",      // Model mới nhất, nhanh và mạnh (experimental)
+  "gemini-1.5-flash-latest",   // Flash model ổn định nhất
 ];
 
 function isTransientGeminiError(error: unknown): boolean {
@@ -39,7 +39,7 @@ async function generateTextWithRetry(
       try {
         const model = genAI.getGenerativeModel({ model: modelName });
         const result = await model.generateContent(prompt);
-        const response = await result.response;
+        const response = result.response;
         return response.text();
       } catch (error) {
         lastError = error;
@@ -284,9 +284,11 @@ Các dạng bài tập yêu cầu:
 2. **5 câu hỏi Nối từ với Định nghĩa/Nghĩa tiếng Việt** (chỉ cần đưa ra từ và định nghĩa/nghĩa tiếng Việt tương ứng).
 3. **2 câu hỏi Trắc nghiệm** về cách sử dụng từ hoặc nội dung đoạn văn.
 
-**Lưu ý quan trọng:**
-- Tất cả câu hỏi và nội dung bài tập phải được viết bằng ${targetLanguage}
-- Có thể thêm bản dịch tiếng Việt ở dưới mỗi câu hỏi để người mới có thể hiểu rõ hơn
+**Lưu ý quan trọng về ngôn ngữ:**
+- Tất cả câu hỏi (question) phải được viết hoàn toàn bằng ${targetLanguage}
+- Trường "translation" (nếu có) chứa bản dịch tiếng Việt của câu hỏi
+- Các đáp án (answer, options) phải bằng ${targetLanguage}
+- Không được trộn lẫn tiếng Việt vào nội dung câu hỏi hoặc đáp án
 - Độ khó của câu hỏi phải phù hợp với trình độ ${proficiency}
 
 Định dạng đầu ra phải là JSON object bao gồm các trường sau:
@@ -339,27 +341,33 @@ async function generateWritingPrompt(
   
   const targetLanguage = languageMap[language] || language;
 
-  const prompt = `Tạo một đề bài viết ${targetLanguage} để người học luyện tập sử dụng các từ vựng đã học.
+  const prompt = `Tạo một đề bài viết để người học luyện tập sử dụng các từ vựng đã học.
 
 **Chủ đề:** ${topic}
 **Từ vựng cần sử dụng:** ${wordList}
 **Trình độ:** ${proficiency}
-**Ngôn ngữ:** ${targetLanguage}
+**Ngôn ngữ mục tiêu:** ${targetLanguage}
+
+**Lưu ý quan trọng về ngôn ngữ:**
+- Đề bài viết (prompt) phải bằng ${targetLanguage} và yêu cầu người học viết bằng ${targetLanguage}
+- Yêu cầu (requirements) phải bằng ${targetLanguage}
+- Gợi ý cấu trúc (structure_hints) phải bằng ${targetLanguage}
+- Làm rõ trong đề bài rằng người học phải viết bài bằng ${targetLanguage}
 
 Yêu cầu:
-1. Tạo một đề bài viết thú vị và phù hợp với trình độ ${proficiency}
+1. Đề bài viết (prompt) phải bằng ${targetLanguage} và yêu cầu người học viết bằng ${targetLanguage}
 2. Yêu cầu người học sử dụng ít nhất 8-10 từ vựng từ danh sách đã cho
 3. Đề bài phải liên quan đến chủ đề "${topic}"
 4. Độ dài bài viết: 100-150 từ (cho trình độ A1-A2) hoặc 150-200 từ (cho trình độ B1+)
-5. Cung cấp gợi ý về cấu trúc bài viết
+5. Cung cấp gợi ý về cấu trúc bài viết bằng ${targetLanguage}
 
 Định dạng đầu ra phải là JSON object:
 {
-  "prompt": "Đề bài viết",
-  "requirements": "Yêu cầu cụ thể về việc sử dụng từ vựng",
+  "prompt": "Đề bài viết bằng ${targetLanguage}, yêu cầu viết bằng ${targetLanguage}",
+  "requirements": "Yêu cầu cụ thể về việc sử dụng từ vựng (bằng ${targetLanguage}",
   "word_count_min": 100,
   "word_count_max": 150,
-  "structure_hints": "Gợi ý cấu trúc bài viết"
+  "structure_hints": "Gợi ý cấu trúc bài viết (bằng ${targetLanguage})"
 }`;
 
   try {
@@ -409,9 +417,11 @@ async function analyzeWriting(
 
   const prompt = `Phân tích bài viết ${targetLanguage} của người học và đưa ra phản hồi chi tiết.
 
-QUAN TRỌNG:
-- Toàn bộ phản hồi, nội dung văn bản, lời giải thích và các giá trị trong JSON phải bằng tiếng Việt (vi-VN) ngoại trừ phần corrected_version: Phiên bản đã sửa của bài viết, không sử dụng tiếng Anh.
-- Chỉ trả về JSON đúng cấu trúc, không thêm lời dẫn, không thêm tiền tố/hậu tố.
+QUAN TRỌNG VỀ NGÔN NGỮ:
+- Tất cả các trường phản hồi, giải thích, và phân tích phải bằng tiếng Việt
+- Trường "corrected_version" phải hoàn toàn bằng ${targetLanguage} (không được có tiếng Việt)
+- Đây là bài viết ${targetLanguage}, vì vậy phiên bản đã sửa phải là ${targetLanguage} thuần túy
+- Chỉ trả về JSON đúng cấu trúc, không thêm lời dẫn, không thêm tiền tố/hậu tố
 
 **Bài viết của người học:**
 "${writing}"
@@ -480,6 +490,20 @@ Yêu cầu phân tích:
     }
 
     const analysis = JSON.parse(jsonMatch[0]);
+    
+    // Development mode language verification
+    if (process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true') {
+      const correctedVersion = analysis.corrected_version || '';
+      const vietnameseRegex = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i;
+      const hasVietnamese = vietnameseRegex.test(correctedVersion);
+      
+      console.log('[DEBUG] Language verification for corrected_version:', {
+        hasVietnamese,
+        targetLanguage,
+        preview: correctedVersion.substring(0, 100)
+      });
+    }
+    
     return NextResponse.json({ analysis });
   } catch (error) {
     console.error("Error analyzing writing:", error);

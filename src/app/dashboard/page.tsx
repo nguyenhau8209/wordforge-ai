@@ -13,6 +13,7 @@ import { BookOpen, Plus, Play, BarChart3, Clock } from "lucide-react"
 import { toast } from "sonner"
 import CreateLessonModal from "@/components/CreateLessonModal"
 import LessonFlow from "@/components/LessonFlow"
+import type { SaveVocabularyRequest, SaveVocabularyResponse } from "@/types/lesson-vocabulary"
 
 interface Deck {
   id: string
@@ -141,9 +142,46 @@ export default function Dashboard() {
     setCurrentLesson(lessonData)
   }
 
-  const handleLessonComplete = () => {
-    setCurrentLesson(null)
-    fetchDecks() // Refresh decks
+  const handleLessonComplete = async (lessonData: SaveVocabularyRequest) => {
+    try {
+      // Call API endpoint to save vocabulary
+      const response = await fetch('/api/lessons/save-vocabulary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          topic: lessonData.topic,
+          language: lessonData.language,
+          proficiency: lessonData.proficiency,
+          vocabulary: lessonData.vocabulary
+        })
+      })
+
+      if (response.ok) {
+        const result: SaveVocabularyResponse = await response.json()
+        
+        // Display success notification with flashcard counts
+        const message = result.skipped > 0
+          ? `Đã lưu ${result.created} flashcard mới! (Bỏ qua ${result.skipped} từ trùng lặp)`
+          : `Đã lưu ${result.created} flashcard mới!`
+        
+        toast.success(message)
+      } else {
+        // Handle error response
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Error saving vocabulary:', errorData)
+        toast.error('Không thể lưu flashcard. Vui lòng thử lại.')
+      }
+    } catch (error) {
+      // Catch network or other errors
+      console.error('Error saving vocabulary:', error)
+      toast.error('Có lỗi xảy ra khi lưu flashcard.')
+    } finally {
+      // Always clear current lesson and refresh deck list
+      setCurrentLesson(null)
+      fetchDecks() // Refresh deck list to show new flashcards
+    }
   }
 
   if (currentLesson) {

@@ -53,7 +53,7 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
   const [mcAnswers, setMcAnswers] = useState<{ [key: number]: string }>({})
   const [showResults, setShowResults] = useState(false)
   const [scores, setScores] = useState({ fill: 0, matching: 0, mc: 0 })
-  const [generatedExercises, setGeneratedExercises] = useState<ExerciseData | null>(exercises || null)
+  const [generatedExercises, setGeneratedExercises] = useState<ExerciseData | null>(null)
   const [isGeneratingExercises, setIsGeneratingExercises] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [completedTabs, setCompletedTabs] = useState<Set<number>>(new Set())
@@ -78,23 +78,107 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
     return null
   }
 
+  // Chuẩn hóa dữ liệu bài tập từ AI về định dạng thống nhất
+  const normalizeExerciseData = useCallback((data: unknown): ExerciseData => {
+    const obj = (data && typeof data === "object" ? data as Record<string, unknown> : {})
+    const coalesce = (...vals: unknown[]): string => {
+      for (const v of vals) {
+        if (typeof v === "string" && v.trim().length > 0) return v
+      }
+      return ""
+    }
+    const toArray = (v: unknown): unknown[] => Array.isArray(v) ? v : (v && typeof v === "object" ? [v] : [])
+
+    const rawFill = (obj as Record<string, unknown>)["fill_in_the_blanks"] as unknown
+    const fill = toArray(rawFill).map((q: unknown) => {
+      const qq = (q && typeof q === "object" ? q as Record<string, unknown> : {})
+      return ({
+      question: coalesce(
+        qq?.question,
+        qq?.question_text,
+        qq?.question_en,
+        qq?.question_vi,
+        qq?.question_vietnamese,
+        qq?.question_german,
+        qq?.prompt
+      ),
+      answer: coalesce(
+        qq?.answer,
+        qq?.correct,
+        qq?.correct_answer,
+        qq?.solution,
+        qq?.answer_text,
+        qq?.answer_en,
+        qq?.answer_vi,
+        qq?.answer_german
+      ),
+      translation: coalesce(qq?.translation, qq?.explanation, qq?.hint, qq?.translation_vi, qq?.translation_en),
+      options: normalizeOptions((qq as Record<string, unknown>)["options"] ?? (qq as Record<string, unknown>)["choices"] ?? (qq as Record<string, unknown>)["answers"])
+    })})
+
+    const rawMatching = (obj as Record<string, unknown>)["matching"] as unknown
+    const matching = toArray(rawMatching).map((m: unknown) => {
+      const mm = (m && typeof m === "object" ? m as Record<string, unknown> : {})
+      return ({
+      word: coalesce(mm?.word, mm?.term, mm?.source, mm?.vocabulary, mm?.question_german, mm?.question),
+      meaning: coalesce(mm?.meaning, mm?.definition, mm?.target, mm?.translation_vi, mm?.vietnamese_meaning, mm?.answer),
+      translation: coalesce(mm?.translation, mm?.hint)
+    })})
+
+    const rawMc = (obj as Record<string, unknown>)["multiple_choice"] as unknown
+    const mc = toArray(rawMc).map((mcq: unknown) => {
+      const mco = (mcq && typeof mcq === "object" ? mcq as Record<string, unknown> : {})
+      return ({
+      question: coalesce(
+        mco?.question,
+        mco?.question_text,
+        mco?.question_en,
+        mco?.question_vi,
+        mco?.question_german,
+        mco?.prompt
+      ),
+      options: normalizeOptions((mco as Record<string, unknown>)["options"] ?? (mco as Record<string, unknown>)["choices"] ?? (mco as Record<string, unknown>)["answers"]),
+      answer: coalesce(mco?.answer, mco?.correct, mco?.correct_answer, mco?.solution),
+      translation: coalesce(mco?.translation, mco?.explanation, mco?.hint)
+    })})
+
+    return {
+      fill_in_the_blanks: fill,
+      matching,
+      multiple_choice: mc,
+    }
+  }, [])
+
   // Chuẩn hóa định dạng options từ AI (có thể trả về array | object | string)
-  const normalizeOptions = (options: unknown): string[] => {
+  function normalizeOptions(options: unknown): string[] {
     if (Array.isArray(options)) {
-      return (options as unknown[]).filter((o): o is string => typeof o === "string")
+      const filtered = (options as unknown[]).filter((o): o is string => typeof o === "string")
+      if (filtered.length === 0) {
+        console.warn("normalizeOptions: Array provided but no valid string options found after filtering", options)
+      }
+      return filtered
     }
     if (options && typeof options === "object") {
       const entries = Object.entries(options as Record<string, unknown>)
       // Sắp xếp theo key để giữ thứ tự A, B, C, D
       entries.sort((a, b) => a[0].localeCompare(b[0], undefined, { sensitivity: "base" }))
-      return entries.map(([k, v]) => `${k}) ${String(v ?? "")}`.trim())
+      const mapped = entries.map(([k, v]) => `${k}) ${String(v ?? "")}`.trim())
+      if (mapped.length === 0) {
+        console.warn("normalizeOptions: Object provided but no valid entries found", options)
+      }
+      return mapped
     }
     if (typeof options === "string") {
-      return options
+      const split = options
         .split(/\r?\n|[;,|]/)
         .map(s => s.trim())
         .filter(Boolean)
+      if (split.length === 0) {
+        console.warn("normalizeOptions: String provided but no valid options after split", options)
+      }
+      return split
     }
+    console.warn("normalizeOptions: Invalid option type", typeof options, options)
     return []
   }
 
@@ -164,7 +248,7 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
           })
           console.log("Đang cập nhật generatedExercises:", data.exercises)
         }
-        setGeneratedExercises(data.exercises)
+        setGeneratedExercises(normalizeExerciseData(data.exercises))
         if (DEBUG) console.log("Đã gọi setGeneratedExercises")
       } else {
         const error = await response.json()
@@ -177,7 +261,7 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
     } finally {
       setIsGeneratingExercises(false)
     }
-  }, [passage, vocabulary, language, proficiency, topic, DEBUG])
+  }, [passage, vocabulary, language, proficiency, topic, DEBUG, normalizeExerciseData])
 
   // Tạo bài luyện tập khi component được mount nếu chưa được cung cấp
   useEffect(() => {
@@ -196,6 +280,14 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
     }
     // Chỉ phụ thuộc các tham số sinh bài tập; tránh phụ thuộc vào length gây re-run không cần thiết
   }, [exercises, generatedExercises, passage, language, proficiency, topic, vocabulary, generateExercises, DEBUG])
+
+  // Khi nhận dữ liệu bài tập qua props (ví dụ từ server), chuẩn hóa và set vào state
+  useEffect(() => {
+    if (exercises) {
+      if (DEBUG) console.log("Chuẩn hóa bài tập từ props exercises")
+      setGeneratedExercises(normalizeExerciseData(exercises))
+    }
+  }, [exercises, DEBUG, normalizeExerciseData])
 
   const exerciseTypes = generatedExercises ? [
     { name: "Điền từ vào chỗ trống", count: generatedExercises.fill_in_the_blanks.length },
@@ -593,61 +685,87 @@ export default function ExerciseSection({ exercises, vocabulary, language, profi
         {currentExercise === 2 && (
           <div className="space-y-6">
             <h3 className="text-xl font-semibold text-gray-900">Trắc nghiệm</h3>
-            {generatedExercises?.multiple_choice?.map((exercise, index) => (
-              <Card key={index}>
-                <CardContent className="pt-6">
-                  <div className="space-y-4">
-                    <p className="text-gray-700 font-medium">{exercise.question}</p>
-                    {exercise.translation && (
-                      <p className="text-sm text-gray-500 italic mb-3">
-                        {exercise.translation}
-                      </p>
-                    )}
-                    <div className="space-y-2" role="radiogroup" aria-label={`Lựa chọn câu trả lời cho câu ${index + 1}`}>
-                      {normalizeOptions(exercise.options as unknown).map((option, optionIndex) => (
-                        <label key={optionIndex} className="flex items-center space-x-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name={`mc-${index}`}
-                            value={option}
-                            checked={mcAnswers[index] === option}
-                            onChange={(e) => handleMcAnswer(index, e.target.value)}
-                            disabled={showResults}
-                            className="text-blue-600"
-                            aria-checked={mcAnswers[index] === option}
-                            aria-label={`Chọn đáp án: ${option}`}
-                          />
-                          <span className="text-gray-700">{option}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {showResults && (
-                      <div className="flex items-center space-x-2">
-                        {(() => {
-                          const normalizedOptions = normalizeOptions(exercise.options as unknown)
-                          const userLetter =
-                            deriveLetterFromOptionValue(mcAnswers[index] ?? "", normalizedOptions) ??
-                            extractLetter(mcAnswers[index] ?? "") ??
-                            null
-                          const correctLetter =
-                            extractLetter(exercise.answer ?? "") ??
-                            deriveLetterFromOptionValue(exercise.answer ?? "", normalizedOptions) ??
-                            null
-                          return !!userLetter && !!correctLetter && userLetter === correctLetter
-                        })() ? (
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-red-500" />
-                        )}
-                        <span className="text-sm text-gray-600">
-                          Đáp án đúng: <strong>{exercise.answer}</strong>
-                        </span>
+            {generatedExercises?.multiple_choice?.map((exercise, index) => {
+              const normalizedOptions = normalizeOptions(exercise.options as unknown)
+              
+              // Defensive check: ensure options exist and have content
+              if (!normalizedOptions || normalizedOptions.length === 0) {
+                console.error(`Multiple choice question ${index} has no options:`, exercise)
+                return (
+                  <Card key={index}>
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <p className="text-gray-700 font-medium">{exercise.question}</p>
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                          <div className="flex items-start space-x-2">
+                            <XCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-red-800 font-medium">Lỗi: Câu hỏi này không có đáp án</p>
+                              <p className="text-red-600 text-sm mt-1">Vui lòng thử tạo lại bài tập.</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    </CardContent>
+                  </Card>
+                )
+              }
+              
+              return (
+                <Card key={index}>
+                  <CardContent className="pt-6">
+                    <div className="space-y-4">
+                      <p className="text-gray-700 font-medium">{exercise.question}</p>
+                      {exercise.translation && (
+                        <p className="text-sm text-gray-500 italic mb-3">
+                          {exercise.translation}
+                        </p>
+                      )}
+                      <div className="space-y-2" role="radiogroup" aria-label={`Lựa chọn câu trả lời cho câu ${index + 1}`}>
+                        {normalizedOptions.map((option, optionIndex) => (
+                          <label key={optionIndex} className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`mc-${index}`}
+                              value={option}
+                              checked={mcAnswers[index] === option}
+                              onChange={(e) => handleMcAnswer(index, e.target.value)}
+                              disabled={showResults}
+                              className="text-blue-600"
+                              aria-checked={mcAnswers[index] === option}
+                              aria-label={`Chọn đáp án: ${option}`}
+                            />
+                            <span className="text-gray-700">{option}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {showResults && (
+                        <div className="flex items-center space-x-2">
+                          {(() => {
+                            const userLetter =
+                              deriveLetterFromOptionValue(mcAnswers[index] ?? "", normalizedOptions) ??
+                              extractLetter(mcAnswers[index] ?? "") ??
+                              null
+                            const correctLetter =
+                              extractLetter(exercise.answer ?? "") ??
+                              deriveLetterFromOptionValue(exercise.answer ?? "", normalizedOptions) ??
+                              null
+                            return !!userLetter && !!correctLetter && userLetter === correctLetter
+                          })() ? (
+                            <CheckCircle className="h-5 w-5 text-green-500" />
+                          ) : (
+                            <XCircle className="h-5 w-5 text-red-500" />
+                          )}
+                          <span className="text-sm text-gray-600">
+                            Đáp án đúng: <strong>{exercise.answer}</strong>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         )}
       </div>
