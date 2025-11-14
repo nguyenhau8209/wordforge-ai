@@ -132,11 +132,11 @@ async function generateVocabulary(
   language: string,
   proficiency: string
 ) {
-  // Map language names
+  // Map language names to English for the prompt
   const languageMap: { [key: string]: string } = {
-    "english": "tiếng Anh",
-    "german": "tiếng Đức", 
-    "chinese": "tiếng Trung",
+    "english": "English",
+    "german": "German", 
+    "chinese": "Chinese",
     "custom": language
   };
   
@@ -145,19 +145,19 @@ async function generateVocabulary(
   // Determine definition style based on proficiency
   const isBasicLevel = ["A1", "A2"].includes(proficiency);
   const definitionStyle = isBasicLevel 
-    ? "Nghĩa tiếng Việt ngắn gọn và dễ hiểu" 
-    : "Định nghĩa theo kiểu từ điển Cambridge (bằng tiếng Anh, ngắn gọn và chính xác)";
+    ? "Brief and easy-to-understand Vietnamese meaning" 
+    : "Cambridge dictionary style definition (in English, concise and accurate)";
 
-  const prompt = `Hãy tạo cho tôi một danh sách ${wordCount} từ vựng ${targetLanguage} liên quan đến chủ đề "${topic}".
-Trình độ: ${proficiency}
+  const prompt = `Generate a list of ${wordCount} ${targetLanguage} vocabulary words related to the topic "${topic}".
+Proficiency level: ${proficiency}
 
-Định dạng đầu ra phải là một JSON array gồm ${wordCount} object, mỗi object có các trường sau:
-- "word": (Từ vựng ${targetLanguage})
-- "type": (Loại từ vựng, ví dụ: Noun, Verb, Adjective)
+The output format must be a JSON array of ${wordCount} objects, each with the following fields:
+- "word": (The ${targetLanguage} vocabulary word)
+- "type": (Part of speech, e.g., Noun, Verb, Adjective)
 - "vietnamese_meaning": (${definitionStyle})
-${!isBasicLevel ? '- "english_definition": (Định nghĩa tiếng Anh theo kiểu Cambridge)' : ''}
+${!isBasicLevel ? '- "english_definition": (English definition in Cambridge dictionary style)' : ''}
 
-Ví dụ về định dạng mong muốn:
+Example of expected format:
 ${isBasicLevel ? `[
   {
     "word": "sustainability",
@@ -214,23 +214,23 @@ ${isBasicLevel ? `[
 async function generatePassage(topic: string, vocabulary: VocabularyItem[], language: string, proficiency: string) {
   const wordList = vocabulary.map((v) => v.word).join(", ");
 
-  // Map language names
+  // Map language names to English for the prompt
   const languageMap: { [key: string]: string } = {
-    "english": "tiếng Anh",
-    "german": "tiếng Đức", 
-    "chinese": "tiếng Trung",
+    "english": "English",
+    "german": "German", 
+    "chinese": "Chinese",
     "custom": language
   };
   
   const targetLanguage = languageMap[language] || language;
 
-  const prompt = `Sử dụng tất cả các từ vựng sau đây để tạo một đoạn văn bản ${targetLanguage} mạch lạc, hấp dẫn, dài khoảng 150-200 từ. 
-Đoạn văn phải xoay quanh chủ đề chính là "${topic}".
-Trình độ: ${proficiency}
+  const prompt = `Use all of the following vocabulary words to create a coherent, engaging ${targetLanguage} passage approximately 150-200 words long.
+The passage should revolve around the main topic: "${topic}".
+Proficiency level: ${proficiency}
 
-Danh sách từ vựng cần sử dụng: ${wordList}.
+Vocabulary words to use: ${wordList}.
 
-Định dạng đầu ra chỉ là đoạn văn bản (text) không bao gồm bất kỳ lời dẫn hay giải thích nào khác.`;
+The output format should be only the passage text, without any introductory phrases or additional explanations.`;
 
   try {
     const passage = (await generateTextWithRetry(prompt)).trim();
@@ -260,41 +260,41 @@ async function generateExercises(
 ) {
   const wordList = vocabulary.map((v) => v.word).join(", ");
 
-  // Map language names
+  // Map language names to English for the prompt
   const languageMap: { [key: string]: string } = {
-    "english": "tiếng Anh",
-    "german": "tiếng Đức", 
-    "chinese": "tiếng Trung",
+    "english": "English",
+    "german": "German", 
+    "chinese": "Chinese",
     "custom": language
   };
   
   const targetLanguage = languageMap[language] || language;
 
-  const prompt = `Dựa trên đoạn văn bản sau và danh sách từ vựng vừa được sử dụng, hãy tạo 3 dạng bài tập khác nhau để người dùng luyện tập và ghi nhớ từ vựng.
+  const prompt = `Based on the following passage and the vocabulary words just used, create 3 different types of exercises for users to practice and memorize the vocabulary.
 
-**Đoạn văn:** "${passage}"
+**Passage:** "${passage}"
 
-**Từ vựng cần luyện tập:** ${wordList}.
+**Vocabulary to practice:** ${wordList}.
 
-**Ngôn ngữ:** ${targetLanguage}
-**Trình độ:** ${proficiency}
+**Language:** ${targetLanguage}
+**Proficiency level:** ${proficiency}
 
-Các dạng bài tập yêu cầu:
-1. **5 câu hỏi Điền từ vào chỗ trống** (sử dụng 5 từ khác nhau từ danh sách).
-2. **5 câu hỏi Nối từ với Định nghĩa/Nghĩa tiếng Việt** (chỉ cần đưa ra từ và định nghĩa/nghĩa tiếng Việt tương ứng).
-3. **2 câu hỏi Trắc nghiệm** về cách sử dụng từ hoặc nội dung đoạn văn.
+Required exercise types:
+1. **5 Fill-in-the-blank questions** (using 5 different words from the list).
+2. **5 Matching questions** (match words with definitions/Vietnamese meanings).
+3. **2 Multiple-choice questions** about word usage or passage content.
 
-**Lưu ý quan trọng về ngôn ngữ:**
-- Tất cả câu hỏi (question) phải được viết hoàn toàn bằng ${targetLanguage}
-- Trường "translation" (nếu có) chứa bản dịch tiếng Việt của câu hỏi
-- Các đáp án (answer, options) phải bằng ${targetLanguage}
-- Không được trộn lẫn tiếng Việt vào nội dung câu hỏi hoặc đáp án
-- Độ khó của câu hỏi phải phù hợp với trình độ ${proficiency}
+**IMPORTANT LANGUAGE REQUIREMENTS:**
+- All questions (question field) must be written entirely in ${targetLanguage}
+- The "translation" field (if present) contains the Vietnamese translation of the question
+- All answers and options must be in ${targetLanguage}
+- Do not mix Vietnamese into question content or answer options
+- Question difficulty must match the ${proficiency} proficiency level
 
-Định dạng đầu ra phải là JSON object bao gồm các trường sau:
-- "fill_in_the_blanks": (Array các object câu hỏi và đáp án cho bài điền từ)
-- "matching": (Array các object gồm "word" và "meaning" cho bài nối)
-- "multiple_choice": (Array các object câu hỏi, lựa chọn và đáp án)`;
+The output format must be a JSON object with the following fields:
+- "fill_in_the_blanks": (Array of question and answer objects for fill-in-the-blank exercises)
+- "matching": (Array of objects with "word" and "meaning" for matching exercises)
+- "multiple_choice": (Array of objects with question, options, and answer)`;
 
   try {
     const text = await generateTextWithRetry(prompt);
@@ -331,43 +331,43 @@ async function generateWritingPrompt(
 ) {
   const wordList = vocabulary.map((v) => v.word).join(", ");
 
-  // Map language names
+  // Map language names to English for the prompt
   const languageMap: { [key: string]: string } = {
-    "english": "tiếng Anh",
-    "german": "tiếng Đức", 
-    "chinese": "tiếng Trung",
+    "english": "English",
+    "german": "German", 
+    "chinese": "Chinese",
     "custom": language
   };
   
   const targetLanguage = languageMap[language] || language;
 
-  const prompt = `Tạo một đề bài viết để người học luyện tập sử dụng các từ vựng đã học.
+  const prompt = `Create a writing prompt for learners to practice using the vocabulary they have learned.
 
-**Chủ đề:** ${topic}
-**Từ vựng cần sử dụng:** ${wordList}
-**Trình độ:** ${proficiency}
-**Ngôn ngữ mục tiêu:** ${targetLanguage}
+**Topic:** ${topic}
+**Vocabulary to use:** ${wordList}
+**Proficiency level:** ${proficiency}
+**Target language:** ${targetLanguage}
 
-**Lưu ý quan trọng về ngôn ngữ:**
-- Đề bài viết (prompt) phải bằng ${targetLanguage} và yêu cầu người học viết bằng ${targetLanguage}
-- Yêu cầu (requirements) phải bằng ${targetLanguage}
-- Gợi ý cấu trúc (structure_hints) phải bằng ${targetLanguage}
-- Làm rõ trong đề bài rằng người học phải viết bài bằng ${targetLanguage}
+**IMPORTANT LANGUAGE REQUIREMENTS:**
+- The writing prompt must be in ${targetLanguage} and require learners to write in ${targetLanguage}
+- Requirements must be in ${targetLanguage}
+- Structure hints must be in ${targetLanguage}
+- Make it clear in the prompt that learners must write in ${targetLanguage}
 
-Yêu cầu:
-1. Đề bài viết (prompt) phải bằng ${targetLanguage} và yêu cầu người học viết bằng ${targetLanguage}
-2. Yêu cầu người học sử dụng ít nhất 8-10 từ vựng từ danh sách đã cho
-3. Đề bài phải liên quan đến chủ đề "${topic}"
-4. Độ dài bài viết: 100-150 từ (cho trình độ A1-A2) hoặc 150-200 từ (cho trình độ B1+)
-5. Cung cấp gợi ý về cấu trúc bài viết bằng ${targetLanguage}
+Requirements:
+1. The writing prompt must be in ${targetLanguage} and require learners to write in ${targetLanguage}
+2. Require learners to use at least 8-10 vocabulary words from the provided list
+3. The prompt must relate to the topic "${topic}"
+4. Word count: 100-150 words (for A1-A2 levels) or 150-200 words (for B1+ levels)
+5. Provide structure hints in ${targetLanguage}
 
-Định dạng đầu ra phải là JSON object:
+The output format must be a JSON object:
 {
-  "prompt": "Đề bài viết bằng ${targetLanguage}, yêu cầu viết bằng ${targetLanguage}",
-  "requirements": "Yêu cầu cụ thể về việc sử dụng từ vựng (bằng ${targetLanguage}",
+  "prompt": "Writing prompt in ${targetLanguage}, requiring writing in ${targetLanguage}",
+  "requirements": "Specific requirements about vocabulary usage (in ${targetLanguage})",
   "word_count_min": 100,
   "word_count_max": 150,
-  "structure_hints": "Gợi ý cấu trúc bài viết (bằng ${targetLanguage})"
+  "structure_hints": "Writing structure hints (in ${targetLanguage})"
 }`;
 
   try {
@@ -405,44 +405,44 @@ async function analyzeWriting(
 ) {
   const wordList = vocabulary.map((v) => v.word).join(", ");
 
-  // Map language names
+  // Map language names to English for the prompt
   const languageMap: { [key: string]: string } = {
-    "english": "tiếng Anh",
-    "german": "tiếng Đức", 
-    "chinese": "tiếng Trung",
+    "english": "English",
+    "german": "German", 
+    "chinese": "Chinese",
     "custom": language
   };
   
   const targetLanguage = languageMap[language] || language;
 
-  const prompt = `Phân tích bài viết ${targetLanguage} của người học và đưa ra phản hồi chi tiết.
+  const prompt = `Analyze the learner's ${targetLanguage} writing and provide detailed feedback.
 
-QUAN TRỌNG VỀ NGÔN NGỮ:
-- Tất cả các trường phản hồi, giải thích, và phân tích phải bằng tiếng Việt
-- Trường "corrected_version" phải hoàn toàn bằng ${targetLanguage} (không được có tiếng Việt)
-- Đây là bài viết ${targetLanguage}, vì vậy phiên bản đã sửa phải là ${targetLanguage} thuần túy
-- Chỉ trả về JSON đúng cấu trúc, không thêm lời dẫn, không thêm tiền tố/hậu tố
+**IMPORTANT LANGUAGE REQUIREMENTS:**
+- All feedback, explanation, and analysis fields must be in Vietnamese
+- The "corrected_version" field must be entirely in ${targetLanguage} (no Vietnamese)
+- This is a ${targetLanguage} writing assignment, so the corrected version must be pure ${targetLanguage}
+- Return only the JSON structure, no additional prefixes or suffixes
 
-**Bài viết của người học:**
+**Learner's writing:**
 "${writing}"
 
-**Từ vựng cần sử dụng:** ${wordList}
-**Trình độ:** ${proficiency}
-**Ngôn ngữ:** ${targetLanguage}
+**Vocabulary to use:** ${wordList}
+**Proficiency level:** ${proficiency}
+**Language:** ${targetLanguage}
 
-Yêu cầu phân tích:
-1. **Sử dụng từ vựng:** Kiểm tra xem người học đã sử dụng bao nhiêu từ vựng từ danh sách, đánh dấu các từ đã sử dụng
-2. **Ngữ pháp:** Tìm và sửa các lỗi ngữ pháp, giải thích ngắn gọn
-3. **Từ vựng:** Đề xuất từ vựng tốt hơn cho các từ đơn giản
-4. **Cấu trúc:** Đánh giá cấu trúc câu và đoạn văn
-5. **Nội dung:** Đánh giá tính mạch lạc và logic của bài viết
-6. **Điểm số:** Chấm điểm từ 1-10 cho từng tiêu chí
+Analysis requirements:
+1. **Vocabulary usage:** Check how many vocabulary words from the list the learner used, mark the words used
+2. **Grammar:** Find and correct grammar errors, provide brief explanations
+3. **Vocabulary:** Suggest better vocabulary for simple words
+4. **Structure:** Evaluate sentence and paragraph structure
+5. **Content:** Evaluate coherence and logic of the writing
+6. **Scoring:** Score from 1-10 for each criterion
 
-Định dạng đầu ra phải là JSON object:
+The output format must be a JSON object:
 {
   "vocabulary_usage": {
-    "used_words": ["từ1", "từ2"],
-    "unused_words": ["từ3", "từ4"],
+    "used_words": ["word1", "word2"],
+    "unused_words": ["word3", "word4"],
     "usage_count": 8,
     "total_words": 20,
     "score": 8
@@ -450,34 +450,34 @@ Yêu cầu phân tích:
   "grammar_analysis": {
     "errors": [
       {
-        "sentence": "câu có lỗi",
-        "error": "mô tả lỗi",
-        "correction": "câu đã sửa",
-        "explanation": "giải thích"
+        "sentence": "sentence with error",
+        "error": "error description",
+        "correction": "corrected sentence",
+        "explanation": "explanation"
       }
     ],
     "score": 7
   },
   "vocabulary_improvements": [
     {
-      "original": "từ đơn giản",
-      "suggestion": "từ tốt hơn",
-      "reason": "lý do"
+      "original": "simple word",
+      "suggestion": "better word",
+      "reason": "reason"
     }
   ],
   "structure_feedback": {
-    "strengths": ["điểm mạnh"],
-    "improvements": ["điểm cần cải thiện"],
+    "strengths": ["strength"],
+    "improvements": ["area to improve"],
     "score": 8
   },
   "content_feedback": {
-    "coherence": "đánh giá tính mạch lạc",
-    "completeness": "đánh giá tính đầy đủ",
+    "coherence": "coherence assessment",
+    "completeness": "completeness assessment",
     "score": 9
   },
   "overall_score": 8,
-  "corrected_version": "Phiên bản đã sửa của bài viết",
-  "encouragement": "Lời khích lệ và gợi ý cải thiện"
+  "corrected_version": "Corrected version of the writing",
+  "encouragement": "Encouragement and improvement suggestions"
 }`;
 
   try {

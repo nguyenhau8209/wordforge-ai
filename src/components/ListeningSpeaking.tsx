@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowRight, Play, Pause, RotateCcw, Mic, MicOff, Volume2, CheckCircle } from "lucide-react"
 import { toast } from "sonner"
+import { getSpeechLanguageCode } from "@/lib/speech-utils"
 
 interface ListeningSpeakingProps {
   passage: string
@@ -18,7 +19,7 @@ interface ListeningSpeakingProps {
   onComplete: () => void
 }
 
-export default function ListeningSpeaking({ passage, vocabulary, language, proficiency, onComplete }: ListeningSpeakingProps) {
+export default function ListeningSpeaking({ passage, vocabulary, language, onComplete }: ListeningSpeakingProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [hasRecorded, setHasRecorded] = useState(false)
@@ -63,7 +64,7 @@ export default function ListeningSpeaking({ passage, vocabulary, language, profi
           : passage
         
         const utterance = new SpeechSynthesisUtterance(textToSpeak)
-        utterance.lang = language === 'english' ? 'en-US' : 'en-US' // Can be extended for other languages
+        utterance.lang = getSpeechLanguageCode(language)
         utterance.rate = playbackSpeed
         utterance.pitch = 1
         utterance.onend = () => {
@@ -420,7 +421,7 @@ export default function ListeningSpeaking({ passage, vocabulary, language, profi
                   onClick={() => {
                     if ('speechSynthesis' in window) {
                       const utterance = new SpeechSynthesisUtterance(item.word)
-                      utterance.lang = 'en-US'
+                      utterance.lang = getSpeechLanguageCode(language)
                       utterance.rate = 0.8
                       speechSynthesis.speak(utterance)
                     }
