@@ -196,7 +196,7 @@ async function testExerciseGenerationPrompt() {
 // TEST 4: AI Prompt Language Clarity - Writing Prompt (Requirements 1.3, 1.5)
 // ============================================================================
 
-async function testWritingPromptGeneration() {
+async function testWritingPromptGenerationCheck() {
   console.log('\n=== TEST 4: AI Prompt Language Clarity - Writing Prompt Generation ===\n');
   
   try {
@@ -515,7 +515,7 @@ async function testNoRegressions() {
 // Main Test Runner
 // ============================================================================
 
-async function runAllTests() {
+async function executeAllTests() {
   console.log('╔════════════════════════════════════════════════════════════════╗');
   console.log('║  AI Prompt and UI Fixes - Comprehensive Test Suite            ║');
   console.log('║  Testing Tasks 1-7 Implementation                             ║');
@@ -524,7 +524,7 @@ async function runAllTests() {
   await testFlashcardFlipButton();
   await testWritingAnalysisPrompt();
   await testExerciseGenerationPrompt();
-  await testWritingPromptGeneration();
+  await testWritingPromptGenerationCheck();
   await testMultipleChoiceDefensiveRendering();
   await testNormalizeOptionsEnhancements();
   await testDevelopmentModeVerification();
@@ -572,7 +572,7 @@ async function runAllTests() {
 }
 
 // Run tests
-runAllTests().catch(error => {
+executeAllTests().catch(error => {
   console.error('Fatal error running tests:', error);
   process.exit(1);
 });

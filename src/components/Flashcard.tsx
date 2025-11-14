@@ -122,7 +122,7 @@ export default function Flashcard({
               
               {example && (
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-600 italic">"{example}"</p>
+                  <p className="text-sm text-gray-600 italic">&ldquo;{example}&rdquo;</p>
                 </div>
               )}
               

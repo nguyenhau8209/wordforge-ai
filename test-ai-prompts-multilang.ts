@@ -9,6 +9,7 @@ interface TestResult {
   testName: string;
   passed: boolean;
   details: string;
+  requirement: string;
   errors?: string[];
 }
 
@@ -29,8 +30,8 @@ const VIETNAMESE_REGEX = /[àáạảãâầấậẩẫăằắặẳẵèéẹ
 const CHINESE_REGEX = /[\u4e00-\u9fff]/;
 const GERMAN_SPECIAL_CHARS = /[äöüßÄÖÜ]/;
 
-function addTestResult(testName: string, passed: boolean, details: string, errors?: string[]) {
-  TEST_RESULTS.push({ testName, passed, details, errors });
+function addTestResult(testName: string, passed: boolean, details: string, errors?: string[], requirement: string = '') {
+  TEST_RESULTS.push({ testName, passed, details, requirement, errors });
   const status = passed ? '✅ PASS' : '❌ FAIL';
   console.log(`${status}: ${testName}`);
   if (details) console.log(`  ${details}`);
